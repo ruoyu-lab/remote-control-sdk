@@ -1,0 +1,19 @@
+# logrotate for rcs_forwarder's log_file (Linux, with deploy/rcs-forwarder.service):
+#   sudo cp rcs-forwarder.logrotate /etc/logrotate.d/rcs-forwarder
+# Weekly, four kept and compressed; the forwarder opens its file again on
+# SIGHUP (systemctl reload). Without log_file the lines are in the journal,
+# which journald rotates itself.
+/var/log/rcs-forwarder/forwarder.log {
+    su rcs-forwarder rcs-forwarder
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 rcs-forwarder rcs-forwarder
+    sharedscripts
+    postrotate
+        systemctl reload rcs-forwarder.service >/dev/null 2>&1 || true
+    endscript
+}

@@ -1,0 +1,64 @@
+/* dav1d's configuration for the target: what its meson.build writes into
+ * config.h, here written by CMakeLists.txt. */
+#ifndef DAV1D_CONFIG_H
+#define DAV1D_CONFIG_H
+
+#cmakedefine01 ARCH_AARCH64
+#define ARCH_ARM 0
+#cmakedefine01 ARCH_X86
+#cmakedefine01 ARCH_X86_64
+#define ARCH_X86_32 0
+#define ARCH_PPC64LE 0
+#define ARCH_RISCV 0
+#define ARCH_RV32 0
+#define ARCH_RV64 0
+#define ARCH_LOONGARCH 0
+#define ARCH_LOONGARCH32 0
+#define ARCH_LOONGARCH64 0
+#define ENDIANNESS_BIG 0
+
+#define CONFIG_8BPC 1
+#define CONFIG_16BPC 1
+#define CONFIG_LOG 1
+#cmakedefine01 HAVE_ASM
+#define TRIM_DSP_FUNCTIONS 1
+
+#cmakedefine01 HAVE_POSIX_MEMALIGN
+#cmakedefine01 HAVE_MEMALIGN
+#cmakedefine01 HAVE_ALIGNED_ALLOC
+#cmakedefine01 HAVE_DLSYM
+#cmakedefine01 HAVE_UNISTD_H
+#define HAVE_PTHREAD_NP_H 0
+#cmakedefine01 HAVE_GETAUXVAL
+#define HAVE_ELF_AUX_INFO 0
+#cmakedefine01 HAVE_PTHREAD_GETAFFINITY_NP
+#cmakedefine01 HAVE_PTHREAD_SETNAME_NP
+#define HAVE_PTHREAD_SET_NAME_NP 0
+
+/* The arm64 assembler: its directives and the extensions it knows. */
+#define HAVE_AS_FUNC 0
+#cmakedefine01 HAVE_AS_ARCH_DIRECTIVE
+#define AS_ARCH_LEVEL @AS_ARCH_LEVEL@
+#cmakedefine01 HAVE_AS_ARCHEXT_DOTPROD_DIRECTIVE
+#cmakedefine01 HAVE_AS_ARCHEXT_I8MM_DIRECTIVE
+#cmakedefine01 HAVE_AS_ARCHEXT_SVE_DIRECTIVE
+#cmakedefine01 HAVE_AS_ARCHEXT_SVE2_DIRECTIVE
+#cmakedefine01 HAVE_DOTPROD
+#cmakedefine01 HAVE_I8MM
+#cmakedefine01 HAVE_SVE
+#cmakedefine01 HAVE_SVE2
+
+/* Mach-O: C symbols begin with an underscore. */
+#cmakedefine PREFIX 1
+
+#ifdef _WIN32
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+#define UNICODE 1
+#define _UNICODE 1
+#define __USE_MINGW_ANSI_STDIO 1
+#define _CRT_DECLARE_NONSTDC_NAMES 1
+#endif
+
+#endif

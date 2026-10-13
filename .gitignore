@@ -1,0 +1,29 @@
+# Local build products
+/build/
+/build-*/
+/out/
+/cmake-build-*/
+CMakeUserPresets.json
+
+# IDE and operating system files
+.DS_Store
+.idea/
+.vscode/
+.vs/
+*.user
+*.suo
+
+# Node.js binding dependencies and local package output
+node_modules/
+*.tgz
+
+# Local credentials and environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local test captures and profiling output
+/artifacts/local/
+/logs/

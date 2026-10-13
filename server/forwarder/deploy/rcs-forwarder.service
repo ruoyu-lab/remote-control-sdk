@@ -1,0 +1,78 @@
+# rcs_forwarder as a systemd service (Linux; docs/guide/24-forwarder.md has
+# every step):
+#   sudo cmake --install build/linux-forwarder --component forwarder --prefix /usr/local
+#   sudo useradd --system --user-group --no-create-home --home-dir /nonexistent \
+#                --shell /usr/sbin/nologin rcs-forwarder
+#   sudo install -d -m 0750 -o root -g rcs-forwarder /etc/rcs-forwarder
+#   (forwarder.conf and identity.key in it: root:rcs-forwarder, 0640)
+#   sudo install -m 0644 rcs-forwarder.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rcs-forwarder
+# It runs at boot as its own account, and again 5 s after it failed; stopping
+# it (SIGTERM) tells each end the forwarder goes, and the ends come back as
+# their settings say. The event lines go to the journal (journalctl -u
+# rcs-forwarder), or with log_file to /var/log/rcs-forwarder/, which
+# `systemctl reload` (SIGHUP) opens again after logrotate moved the file.
+# The host's own changes (another path, a port below 1024) go in a drop-in
+# (sudo systemctl edit rcs-forwarder), which a new version of this file keeps.
+
+[Unit]
+Description=RCS forwarder (RCS_TRANSPORT_FORWARDER's server)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/rcs_forwarder --config /etc/rcs-forwarder/forwarder.conf
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+User=rcs-forwarder
+Group=rcs-forwarder
+UMask=0027
+# Each end is a reader thread and its hop's, and over TCP or WebSocket a
+# descriptor: max_ends (1024) and some. Raise them with max_ends.
+LimitNOFILE=65536
+TasksMax=4096
+
+# /var/log/rcs-forwarder, the account's: the one place it may write
+# (LogsDirectory= adds it to the writable paths, as ReadWritePaths= would;
+# a log_file elsewhere needs ReadWritePaths= for its directory).
+LogsDirectory=rcs-forwarder
+LogsDirectoryMode=0750
+
+# It reads its configuration, listens and sends; nothing more (netlink: what
+# the system says of its network interfaces).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+# A port below 1024 (listen_tcp = 0.0.0.0:443 with no proxy in front, say)
+# needs the one capability for it, and only then: these two lines, best in
+# the drop-in.
+#CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+#AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+/* What an ELF shared library of the SDK exports: its C API (rcs_*), and the
+   forwarder's (rcsfwd_*: server/forwarder), as on the other systems. Hidden
+   visibility alone leaves GCC's standard library templates exported
+   (libstdc++ gives namespace std default visibility). */
+{
+    global: rcs_*; rcsfwd_*;
+    local: *;
+};

@@ -1,0 +1,43 @@
+# Notes for Claude
+
+## Environment limits
+
+- The SDK targets macOS (Objective-C++, VideoToolbox, ScreenCaptureKit, Security.framework), iOS / iPadOS (VideoToolbox, AVAudioEngine, what ReplayKit hands over), Windows (DXGI, D3D11, Media Foundation, CNG) and Android (NDK MediaCodec, AAudio, EGL / OpenGL ES, hardware buffers, Java through the host's VM: `rcs_android_initialize`). Each has its layer in `src/platform/<os>/` (`apple/` is what macOS and iOS share). Cryptography and TURN over TLS are the system's on Apple and Windows and the vendored BearSSL elsewhere (`RCSDK_CRYPTO_BACKEND`, default `bearssl` off Apple and Windows).
+- Other systems get `src/platform/unsupported/platform.cpp`: no capture, input, sound or system codecs, so the host's pictures and bitstreams (`RCS_CAPTURE_HOST`, `ENCODED`, host codecs), the codec libraries built in (OpenH264, libvpx, libaom, dav1d; CPU frames) and the portable code (API, session, protocol, transport, audio) work there. Linux is not supported as an end: the user dropped the Ubuntu platform layer (2026-10-11); a Linux build reports RCS_PLATFORM_UNKNOWN. The forwarder (`server/forwarder/`) is a server and does run on Linux (user, 2026-10-12): only sharing and viewing/controlling ends leave Linux out. The Linux code paths (`SO_BINDTODEVICE`, `renameat2`, `MSG_NOSIGNAL`) run on Android. The portable code builds with GCC 13 / libstdc++, so a cloud (Linux) session can build and run the tests; they catch logic and memory errors, not platform behavior.
+- On this Mac: `ctest --preset release` (macOS), `--preset ios-simulator` (in the booted iPad simulator), `--preset android-arm64` (over adb: the emulator AVD `rcsdk_test` or a connected phone; `ANDROID_SERIAL` picks one). Simulators and emulators have no hardware encoders and give no real capture; hardware codecs, screen and sound capture, permission prompts and real networks need real devices. Never answer a permission prompt (macOS, Windows, iOS, Android) for the user; declining in an emulator grants nothing.
+- In a cloud (Linux) session, work on a branch, push it, and never call untested code "done" or "verified". In the commit or PR description, list exactly what the user must run on real devices: the build, `ctest --preset release`, and the specific `examples/` or `tools/` commands with expected results.
+- The user verifies on a Mac (Apple Silicon), a Windows PC on the same LAN, an iPad Pro (M2) and a Samsung Galaxy S25+, sometimes with a local Claude session. Keep each branch small enough to verify in one sitting unless the user asks for a whole version at once.
+
+## Positioning
+
+- A general-purpose remote desktop and screen sharing SDK, not a platform SDK for one product. Its hosts include standalone remote desktop and remote support apps, apps that embed viewing or controlling a screen (collaboration, education, support, messaging), device management and cloud desktops, and LAN-only tools. A chat app is one host among many. The SDK is a library for developers, not an end-user app: the user will build their own products on it, such as a chat app and a separate standalone remote desktop app.
+- `examples/` and `tools/` are test and demo programs for the SDK. They are not part of it and do not stand for any product.
+- It provides low-level capabilities and a rich API: it takes work off the host without taking over its UI, flow or product decisions. Anything a host may want to tune or observe is exposed; the SDK has no UI of its own.
+- Two levels of use: "out of the box" means a developer fills in a few fields (role, address, key) and it runs, with defaults balanced for the common case; developers with special needs can customize every behavior deeply through extensions.
+- Never assume one kind of host in defaults, names, examples or docs. When a scenario needs something the SDK lacks, add it as a general capability (see `docs/ROADMAP.md`, 通用化还缺的能力), not a workaround for one host.
+- Keep room to grow: new capabilities arrive as new extension types, events, statistics sections, functions or enum values. Do not hard-code a policy a host might reasonably want to change.
+
+## Design rules the user decided
+
+- This is an SDK, not a framework, and it stays framework-neutral: no Qt or Node adapters inside the SDK. Qt glue lives only in `examples/`.
+- The data plane belongs to the SDK: capture, codec, transport, crypto, rate control, input, sound. The control plane belongs to the host: identity, pairing or invitations, approval, and relaying the opaque `rcs1.` signal text.
+- No silent fallbacks. Failures return an explicit error and reason, and the host decides what to do. For example, P2P never falls back to relay on its own; the host restarts with `RCS_TRANSPORT_RELAY`. Real capability fallbacks the host asked for (hardware → software codec, GPU → CPU path) stay.
+- Defaults must work out of the box, and every behavior must still be configurable through extensions.
+- One API on every system. A system differs only where it cannot do something (iOS lets no app control others, Android shares no clipboard images), and then `rcs_capabilities` says so and the call fails with `RCS_ERROR_UNSUPPORTED` and the reason, never silently. What a system hands over in its own types goes through its own header (`rcsdk/apple.h`: CMSampleBuffers; `rcsdk/android.h`: the Java VM, AHardwareBuffers), and a function there is `UNSUPPORTED` elsewhere. A capability added on one system is implemented on every system that can do it, or the gap is written down (`docs/ROADMAP.md`).
+- No compatibility before 1.0. Any release may reorder, rename or remove fields, renumber enums, change defaults and bump the wire protocol. Never add prefix reads, legacy wire fields, version shims or other compatibility code. The header and the library must be the same version: `rcs_session_config.version` and every `struct_size` / `item_size` are compared exactly, and a mismatch is `RCS_ERROR_INVALID_ARGUMENT`. Both ends run the same version; the protocol version is in the handshake magic (`src/transport/handshake.hpp`) and goes up with every wire change. The version number lives once, in `rcsdk.h` (`RCSDK_VERSION_*`), and CMake reads it from there. Every breaking change updates examples, tests and docs in the same commit and gets a `CHANGELOG.md` entry with migration steps. Compatibility rules start at 1.0 (`docs/API-DESIGN.md`, section 3).
+- Structure: the core config plus an extension chain (`rcs_extension{type, struct_size, next}`). Fields and enum values are grouped by meaning, not by when they were added. New features get a new extension type, event, stats section, function or enum value, not a new core field. Values no version defines are `RCS_ERROR_INVALID_ARGUMENT`; `RCS_ERROR_UNSUPPORTED` means this system or role cannot do it.
+- Defaults: H.264 in hardware, 1920×1080, 60 FPS, 20 Mbit/s. The sharer's own windows are shown by default; hiding them is an option (`rcs_capture_config.exclude_current_process`), not the default. Its own sound is shared by default too.
+- Docs separate "verified on real devices" from "implemented" and "planned". Performance numbers name the devices, resolution, bitrate and measurement end point. See `docs/PERFORMANCE.md` and `docs/ROADMAP.md`.
+- Delete defensive, zombie and ceremony code. Match the surrounding style.
+- Third-party code: develop our own first; use a library only where there is no other way (a vendor's driver interface, a codec). BSD- and MIT-licensed code is allowed (ISC and CC0 alike); each one goes under `third_party/` with its source, version and checksum, and into `THIRD_PARTY_NOTICES.md`. Downloading it still needs the user's OK.
+
+## Where things are
+
+- Public API: `include/rcsdk/rcsdk.h` (C) and `include/rcsdk/rcsdk.hpp` (C++ wrapper); per system `rcsdk/apple.h`, `rcsdk/android.h`
+- Modules: `include/rcsdk/module.h` and `docs/MODULES.md`; official modules in `modules/<name>/` (public headers only), the clipboard first
+- API design and version rules: `docs/API-DESIGN.md`; breaking changes per version: `CHANGELOG.md`
+- Architecture: `docs/ARCHITECTURE.md`; the mobile designs: `docs/IOS-DESIGN.md`, `docs/ANDROID-DESIGN.md`
+- Building per system (presets, the iOS XCFramework, the Android AAR and the demo's APK): `docs/BUILDING.md`; examples and tools: `examples/README.md`, `tools/README.md`
+- Using the SDK (developer guide in Chinese, per platform and per feature): `docs/guide/`
+- Picture formats per platform and codec: `docs/PICTURE-FORMATS.md`; design drafts and reviews are not in the repository: on the owner's Mac they sit in `设计文档/design/` inside the checkout, excluded from git locally (`.git/info/exclude`) (the headers and docs are the reference)
+- Next steps: `docs/ROADMAP.md`, section 下一步

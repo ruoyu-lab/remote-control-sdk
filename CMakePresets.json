@@ -1,0 +1,214 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "debug",
+      "displayName": "Debug: library, examples, tools and tests",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "release",
+      "inherits": "debug",
+      "displayName": "Release: library, examples, tools and tests",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "asan",
+      "inherits": "debug",
+      "displayName": "Debug with AddressSanitizer and UndefinedBehaviorSanitizer (macOS, Linux)",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined",
+        "RCSDK_BUILD_TOOLS": "OFF"
+      }
+    },
+    {
+      "name": "tsan",
+      "inherits": "debug",
+      "displayName": "Debug with ThreadSanitizer (macOS, Linux)",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=thread -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=thread",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=thread",
+        "RCSDK_BUILD_TOOLS": "OFF"
+      }
+    },
+    {
+      "name": "macos-x86_64",
+      "inherits": "release",
+      "displayName": "macOS x86-64 (Intel Macs), built on any Mac; its tests run on Apple silicon under Rosetta",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": { "CMAKE_OSX_ARCHITECTURES": "x86_64" }
+    },
+    {
+      "name": "qt-release",
+      "inherits": "release",
+      "displayName": "Release including the QML demo (requires Qt 6.6)",
+      "cacheVariables": { "RCSDK_BUILD_QML_DEMO": "ON" }
+    },
+    {
+      "name": "windows-msvc",
+      "inherits": "release",
+      "displayName": "Windows with MSVC, built on Windows (from a Visual Studio developer prompt)",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": { "CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl" }
+    },
+    {
+      "name": "ios-simulator",
+      "inherits": "release",
+      "displayName": "iOS simulator (arm64, static libraries); its tests run in the booted simulator (xcrun simctl boot first)",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphonesimulator",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_CROSSCOMPILING_EMULATOR": "xcrun;simctl;spawn;booted"
+      }
+    },
+    {
+      "name": "ios-device",
+      "inherits": "release",
+      "displayName": "iOS devices (arm64, static libraries): the library and the modules",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "BUILD_TESTING": "OFF",
+        "RCSDK_BUILD_EXAMPLES": "OFF"
+      }
+    },
+    {
+      "name": "android-arm64",
+      "inherits": "release",
+      "displayName": "Android arm64-v8a, API 29 (static libraries), from the NDK; its tests run over adb on a booted emulator or a connected device",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/android.cmake",
+      "cacheVariables": { "ANDROID_ABI": "arm64-v8a" }
+    },
+    {
+      "name": "android-x86_64",
+      "inherits": "release",
+      "displayName": "Android x86_64, API 29 (static libraries), from the NDK, with NASM for the codec libraries; its tests run over adb on an x86_64 emulator or device",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/android.cmake",
+      "cacheVariables": { "ANDROID_ABI": "x86_64" }
+    },
+    {
+      "name": "wasm",
+      "inherits": "release",
+      "displayName": "WebAssembly with threads (static libraries), from the Emscripten SDK (EMSDK or ~/emsdk); its tests run in node",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/wasm.cmake",
+      "cacheVariables": {
+        "BUILD_SHARED_LIBS": "OFF",
+        "RCSDK_BUILD_EXAMPLES": "OFF",
+        "RCSDK_BUILD_TOOLS": "OFF"
+      }
+    },
+    {
+      "name": "linux-forwarder",
+      "inherits": "release",
+      "displayName": "The forwarder as a Linux server builds it: its library, program and tests, BearSSL, no codecs",
+      "cacheVariables": {
+        "RCSDK_BUILD_FORWARDER": "ON",
+        "RCSDK_BUILD_EXAMPLES": "OFF",
+        "RCSDK_BUILD_TOOLS": "OFF",
+        "RCSDK_CRYPTO_BACKEND": "bearssl",
+        "RCSDK_WITH_OPENH264": "OFF",
+        "RCSDK_WITH_LIBVPX": "OFF",
+        "RCSDK_WITH_DAV1D": "OFF",
+        "RCSDK_WITH_LIBAOM": "OFF"
+      }
+    },
+    {
+      "name": "linux-forwarder-scenarios",
+      "inherits": "linux-forwarder",
+      "displayName": "linux-forwarder and OpenH264 (NASM on x86-64): also the ends' scenarios through the forwarder and wss://",
+      "cacheVariables": { "RCSDK_WITH_OPENH264": "ON" }
+    },
+    {
+      "name": "windows-x64-release",
+      "inherits": "release",
+      "displayName": "Windows x64 cross-build with LLVM-MinGW (static)",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/windows-x64-llvm-mingw.cmake",
+      "cacheVariables": { "BUILD_SHARED_LIBS": "OFF" }
+    },
+    {
+      "name": "windows-arm64-release",
+      "inherits": "release",
+      "displayName": "Windows ARM64 cross-build with LLVM-MinGW (static)",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/windows-arm64-llvm-mingw.cmake",
+      "cacheVariables": { "BUILD_SHARED_LIBS": "OFF" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "macos-x86_64", "configurePreset": "macos-x86_64" },
+    { "name": "ios-simulator", "configurePreset": "ios-simulator" },
+    { "name": "ios-device", "configurePreset": "ios-device" },
+    { "name": "android-arm64", "configurePreset": "android-arm64" },
+    { "name": "android-x86_64", "configurePreset": "android-x86_64" },
+    { "name": "wasm", "configurePreset": "wasm" },
+    { "name": "asan", "configurePreset": "asan" },
+    { "name": "tsan", "configurePreset": "tsan" },
+    { "name": "qt-release", "configurePreset": "qt-release" },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc" },
+    {
+      "name": "linux-forwarder",
+      "configurePreset": "linux-forwarder",
+      "targets": [
+        "rcs_forwarder", "rcsdk_test_forwarder", "rcsdk_test_websocket", "rcsdk_test_udp", "rcsdk_test_protocol",
+        "rcsdk_test_crypto", "rcsdk_test_crypto_armv8"
+      ]
+    },
+    {
+      "name": "linux-forwarder-scenarios",
+      "configurePreset": "linux-forwarder-scenarios",
+      "targets": [
+        "rcs_forwarder", "rcsdk_test_forwarder", "rcsdk_test_websocket", "rcsdk_test_udp", "rcsdk_test_protocol",
+        "rcsdk_test_crypto", "rcsdk_test_crypto_armv8", "rcsdk_test_forwarder_tls", "rcsdk_test_session"
+      ]
+    },
+    { "name": "windows-x64-release", "configurePreset": "windows-x64-release" },
+    { "name": "windows-arm64-release", "configurePreset": "windows-arm64-release" }
+  ],
+  "testPresets": [
+    { "name": "debug", "configurePreset": "debug", "output": { "outputOnFailure": true } },
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": { "outputOnFailure": true },
+      "environment": { "ASAN_OPTIONS": "detect_leaks=0:abort_on_error=1", "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1" }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true },
+      "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1" }
+    },
+    { "name": "qt-release", "configurePreset": "qt-release", "output": { "outputOnFailure": true } },
+    { "name": "ios-simulator", "configurePreset": "ios-simulator", "output": { "outputOnFailure": true } },
+    { "name": "android-arm64", "configurePreset": "android-arm64", "output": { "outputOnFailure": true } },
+    { "name": "android-x86_64", "configurePreset": "android-x86_64", "output": { "outputOnFailure": true } },
+    { "name": "wasm", "configurePreset": "wasm", "output": { "outputOnFailure": true } },
+    {
+      "name": "linux-forwarder",
+      "configurePreset": "linux-forwarder",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "name": "^rcsdk\\.(forwarder|websocket|udp|protocol|crypto|crypto_armv8)$" } }
+    },
+    {
+      "name": "linux-forwarder-scenarios",
+      "configurePreset": "linux-forwarder-scenarios",
+      "output": { "outputOnFailure": true },
+      "filter": { "include": { "name": "^rcsdk\\.((forwarder|forwarder_tls|websocket|udp|protocol|crypto|crypto_armv8)$|session\\.forwarder)" } }
+    },
+    { "name": "windows-msvc", "configurePreset": "windows-msvc", "output": { "outputOnFailure": true } }
+  ]
+}

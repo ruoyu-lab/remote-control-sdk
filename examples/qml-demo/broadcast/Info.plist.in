@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key><string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+    <key>CFBundleIdentifier</key><string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+    <key>CFBundleName</key><string>RemoteControlBroadcast</string>
+    <key>CFBundleDisplayName</key><string>远程控制 Demo</string>
+    <key>CFBundlePackageType</key><string>XPC!</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleShortVersionString</key><string>${PROJECT_VERSION}</string>
+    <key>CFBundleVersion</key><string>8</string>
+    <key>NSLocalNetworkUsageDescription</key><string>让局域网里的设备连上来，看这台设备的整个屏幕。</string>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key><string>com.apple.broadcast-services-upload</string>
+        <key>NSExtensionPrincipalClass</key><string>SampleHandler</string>
+        <key>RPBroadcastProcessMode</key><string>RPBroadcastProcessModeSampleBuffer</string>
+    </dict>
+</dict>
+</plist>

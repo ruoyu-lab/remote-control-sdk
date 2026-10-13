@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser viewer</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f4f5f7; --fg: #1d2129; --muted: #6b7280; --panel: #ffffff; --line: #d9dde3; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15171b; --fg: #e6e8ec; --muted: #9aa1ab; --panel: #1e2126; --line: #30343b; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; padding: 12px 16px; background: var(--panel);
+         border-bottom: 1px solid var(--line); }
+  label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+  label.check { flex-direction: row; align-items: center; gap: 4px; }
+  input, select, button { font: inherit; padding: 4px 8px; }
+  input[name=key] { width: 34em; font-family: ui-monospace, monospace; }
+  input[name=token] { width: 18em; font-family: ui-monospace, monospace; }
+  #status, #files { padding: 6px 16px; color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }
+  #files a { color: inherit; margin-right: 12px; }
+  #screens { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+  canvas { display: block; width: 100%; height: calc(100vh - 140px); object-fit: contain; background: #000; outline: none; }
+  #screens.drop canvas { outline: 2px dashed #4b8bf5; outline-offset: -2px; }
+</style>
+</head>
+<body>
+<!-- Test software, not part of the SDK: a viewer in the page, through serve.mjs's
+     WebSocket to a room of rcsdk_host_relay, where the sharer (rcsdk_cli --transport host) waits.
+     Each stream the sharer sends gets a canvas; files dropped on the picture go to the sharer,
+     and files the sharer offers are taken into memory and listed as links.
+     The key and serve.mjs's token are typed in (or given to viewer.connect() from a test),
+     never taken from the URL, which history and logs keep. -->
+<form id="connect">
+  <label>Room <input name="room" value="r1"></label>
+  <label>Token (serve.mjs) <input name="token" type="password" required autocomplete="off"></label>
+  <label>Key (hex, 32 bytes) <input name="key" type="password" required pattern="[0-9a-fA-F]{64}" autocomplete="off"></label>
+  <label>Decoder <select name="acceleration"><option value="hardware">hardware</option>
+    <option value="software">software</option><option value="hardwareFirst">hardware first</option></select></label>
+  <label>Paste <select name="paste"><option value="clipboard">as the clipboard</option>
+    <option value="text">typed</option><option value="key">keys only</option></select></label>
+  <label class="check"><input type="checkbox" name="microphone"> microphone</label>
+  <button>Connect</button>
+  <button type="button" id="disconnect" disabled>Disconnect</button>
+  <input type="file" id="send" multiple disabled>
+</form>
+<div id="status">loading…</div>
+<div id="files"></div>
+<div id="screens"></div>
+<script type="module">
+import { load, VideoView, InputMapper, CursorView, ClipboardSync, collectFiles } from './rcsdk.mjs';
+
+const status = document.getElementById('status');
+const form = document.getElementById('connect');
+const screens = document.getElementById('screens');
+const filesLine = document.getElementById('files');
+const params = new URLSearchParams(location.search);
+if (params.has('room')) form.elements.room.value = params.get('room');
+let session = null, ticker = 0, sdk = null, clipboard = null;
+const views = new Map(); // stream -> { view, input, cursor, canvas }
+// For tests in the browser's console: viewer.connect({ room, token, key }) fills the form and connects.
+window.viewer = { views, received: [], get session() { return session; }, get sdk() { return sdk; },
+                  connect(fields) {
+                    for (const [name, value] of Object.entries(fields)) form.elements[name].value = value;
+                    form.requestSubmit();
+                  } };
+
+try {
+  sdk = await load();
+  status.textContent = 'ready; decodes ' + Object.entries(sdk.decoders)
+    .map(([codec, d]) => `${codec}: hardware [${d.hardware}] software [${d.software}]`).join('; ');
+} catch (error) {
+  status.textContent = 'cannot load: ' + error.message;
+}
+
+// A canvas, its view, input and pointer for a stream (a new canvas each time: a view keeps its canvas).
+function showStream(stream) {
+  if (views.has(stream)) return;
+  const canvas = document.createElement('canvas');
+  screens.appendChild(canvas);
+  const view = new VideoView(session, canvas, { stream });
+  const input = new InputMapper(session, view, { paste: form.elements.paste.value });
+  const cursor = new CursorView(session, view);
+  canvas.addEventListener('dblclick', () => input.lock()); // Relative mouse; Esc gives it back.
+  views.set(stream, { view, input, cursor, canvas });
+}
+
+function hideStream(stream) {
+  const entry = views.get(stream);
+  if (!entry) return;
+  entry.input.close();
+  entry.cursor.close();
+  entry.view.close();
+  VideoView.releaseCanvas(sdk, entry.canvas);
+  entry.canvas.remove();
+  views.delete(stream);
+}
+
+async function disconnect() {
+  clearInterval(ticker);
+  for (const stream of [...views.keys()]) hideStream(stream);
+  clipboard?.close();
+  const ending = session;
+  session = clipboard = null;
+  document.getElementById('disconnect').disabled = true;
+  document.getElementById('send').disabled = true;
+  if (ending) await ending.destroy();
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  await disconnect();
+  const hex = form.elements.key.value;
+  const key = new Uint8Array(hex.match(/../g).map((byte) => parseInt(byte, 16)));
+  form.elements.key.value = ''; // The session has it now.
+  session = sdk.createSession({ key, decoder: { acceleration: form.elements.acceleration.value },
+                                viewRequest: { cursor: 'separate' },
+                                sendAudio: { microphone: form.elements.microphone.checked },
+                                clipboard: { send: true, receive: true },
+                                files: { send: true, receive: true } });
+  clipboard = new ClipboardSync(session, { write: params.get('clipwrite') !== '0' });
+  showStream(0);
+  session.addEventListener('state', (e) => {
+    status.textContent = e.detail.state + (e.detail.message ? ': ' + e.detail.message : '');
+  });
+  session.addEventListener('stream', (e) => {
+    console.log('stream', e.detail.stream, e.detail.ended ? 'ended' : e.detail.info);
+    if (e.detail.ended) { if (e.detail.stream) hideStream(e.detail.stream); } else showStream(e.detail.stream);
+  });
+  session.addEventListener('codec', (e) => console.log('codec', e.detail));
+  session.addEventListener('audio', (e) => console.log('audio', e.detail));
+  session.addEventListener('module', (e) => console.log('module', e.detail.module, e.detail.kind, e.detail.message));
+  session.addEventListener('message', (e) => console.log('message', e.detail.channel, new TextDecoder().decode(e.detail.bytes)));
+  session.addEventListener('clipboard', (e) => console.log('clipboard in', JSON.stringify(e.detail.text ?? ''), e.detail));
+  session.addEventListener('clipboardcopy', (e) => console.log('clipboard copy', e.detail));
+  session.addEventListener('clipboardwritten', (e) => console.log('clipboard written', e.detail.text));
+  // Offers are taken into memory (links below), or with ?files=opfs into the origin's private file system.
+  session.addEventListener('fileoffer', async (e) => {
+    console.log('file offer', e.detail);
+    const into = params.get('files') === 'opfs'
+      ? await (await navigator.storage.getDirectory()).getDirectoryHandle('received', { create: true }) : 'memory';
+    session.files.accept(e.detail.transfer, { into });
+  });
+  session.addEventListener('fileprogress', (e) => {
+    filesLine.textContent = `transfer ${e.detail.transfer}: ${e.detail.doneBytes} of ${e.detail.totalBytes} bytes`;
+  });
+  session.addEventListener('filedone', (e) => console.log('file done', e.detail));
+  session.addEventListener('fileitemdone', (e) => console.log('file item', JSON.stringify(e.detail)));
+  session.addEventListener('filereceived', (e) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(e.detail.file);
+    link.download = e.detail.file.name;
+    link.textContent = `${e.detail.path} (${e.detail.file.size} bytes)`;
+    filesLine.appendChild(link);
+    console.log('file received', e.detail.path, e.detail.file.size);
+    window.viewer.received.push(e.detail);
+  });
+  const room = form.elements.room.value;
+  document.getElementById('disconnect').disabled = false;
+  try {
+    // The token goes in the request's body; the ticket it gets opens one WebSocket.
+    const answer = await fetch('/ticket', { method: 'POST', body: form.elements.token.value });
+    if (!answer.ok) throw new Error('serve.mjs refused the token: ' + await answer.text());
+    const ticket = await answer.text();
+    await session.connectWebSocket(`${location.origin.replace(/^http/, 'ws')}/relay?room=${encodeURIComponent(room)}` +
+                                   `&ticket=${ticket}`);
+    await session.start();
+  } catch (error) {
+    status.textContent = 'failed: ' + error.message;
+    return;
+  }
+  document.getElementById('send').disabled = false;
+  let last = { frames: 0, time: performance.now() };
+  ticker = setInterval(() => {
+    if (!session) return;
+    const s = session.stats(), now = performance.now(), v = s.videoReceive, a = s.audioReceive;
+    const fps = ((v.decodedFrames - last.frames) * 1000 / (now - last.time)).toFixed(1);
+    last = { frames: v.decodedFrames, time: now };
+    const shown = [...views.values()].map(({ view }) => `${view.width}x${view.height}`).join(' + ');
+    status.textContent = `${session.state} · ${shown} · ${fps} FPS · decoded ${v.decodedFrames} · ` +
+      `decode ${(v.lastDecodeNs / 1e6).toFixed(2)} ms · arrival→picture ${(v.lastPipelineNs / 1e6).toFixed(2)} ms · ` +
+      `${v.decoder} · rtt ${(s.network.roundTripNs / 1e6).toFixed(1)} ms · sound ${a.active ? 'playing' : 'paused'}, ` +
+      `${a.receivedPackets} packets, buffer ${a.bufferMs} ms, lost ${a.lostPackets}, ` +
+      `device underruns ${a.deviceUnderruns} · microphone ${s.audioSend.active ? s.audioSend.encodedPackets + ' packets' : 'off'}`;
+  }, 1000);
+});
+document.getElementById('disconnect').addEventListener('click', disconnect);
+if (params.has('auto')) setInterval(() => console.log('status ' + status.textContent), 1000); // Tests: the status each second.
+
+// Files to the sharer: chosen, or dropped on the picture (directories with all they hold).
+const sendFiles = (entries) => {
+  if (!session || !entries.length) return;
+  try {
+    const transfer = session.files.send(entries);
+    console.log('file transfer', transfer, entries.map((entry) => entry.name));
+  } catch (error) {
+    filesLine.textContent = 'cannot send: ' + error.message;
+  }
+};
+document.getElementById('send').addEventListener('change', async (e) => sendFiles(await collectFiles(e.target.files)));
+screens.addEventListener('dragover', (e) => { e.preventDefault(); screens.classList.add('drop'); });
+screens.addEventListener('dragleave', () => screens.classList.remove('drop'));
+screens.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  screens.classList.remove('drop');
+  sendFiles(await collectFiles(e.dataTransfer));
+});
+</script>
+</body>
+</html>

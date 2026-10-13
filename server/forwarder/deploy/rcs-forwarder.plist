@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- rcs_forwarder as a launchd job (macOS): copy to
+     /Library/LaunchDaemons/com.example.rcs-forwarder.plist (owned by root,
+     0644), change the label and the paths to the host's own, then
+       sudo launchctl bootstrap system /Library/LaunchDaemons/com.example.rcs-forwarder.plist
+     It runs at boot as the account UserName names (one that can read the
+     configuration and the identity key, and no more), and again whenever it
+     exits; `launchctl bootout` stops it (SIGTERM: the ends hear the forwarder
+     goes and reconnect as their settings say). docs/guide/24-forwarder.md. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.rcs-forwarder</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/rcs_forwarder</string>
+        <string>--config</string>
+        <string>/usr/local/etc/rcs-forwarder/forwarder.conf</string>
+    </array>
+    <key>UserName</key>
+    <string>_rcsforwarder</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/rcs-forwarder.log</string>
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/rcs-forwarder.log</string>
+</dict>
+</plist>

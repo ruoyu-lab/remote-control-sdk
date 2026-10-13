@@ -1,0 +1,10 @@
+; dav1d's configuration for its x86-64 assembly (meson.build's config.asm),
+; written by CMakeLists.txt. Every symbol it defines begins with
+; rcsdk_dav1d_ (rcsdk_dav1d_names.h renames the C side to match).
+%define ARCH_X86_32 0
+%define ARCH_X86_64 1
+%define PIC 1
+%define STACK_ALIGNMENT 16
+%define FORCE_VEX_ENCODING 0
+%define private_prefix rcsdk_dav1d
+@DAV1D_ASM_PREFIX@

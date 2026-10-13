@@ -1,0 +1,57 @@
+# rcs_forwarder --config forwarder.conf
+# One "name = value" a line; "#" starts a comment. Every setting is
+# rcsfwd_config's (server/forwarder/include/rcsfwd.h), where each is
+# explained; 0 or a missing line is its default. docs/guide/24-forwarder.md
+# has the whole setup: the identity, tokens, a TLS proxy, running it as a
+# systemd service (Linux: /etc/rcs-forwarder/forwarder.conf), a launchd job
+# (macOS) or a service (Windows). The file holds the token secrets: readable
+# by the forwarder's account and root only.
+
+# Where each entry listens ("address:port", numeric; [::] for IPv6). At least
+# one. UDP is for every end that can use it; TCP and WebSocket are for ends
+# behind networks that drop UDP. The WebSocket entry is plain ws://: for
+# wss://, a TLS proxy in front of it passes WebSocket connections on to it,
+# and then it listens on loopback only (in a container: 0.0.0.0, the port
+# published on the host's loopback only).
+listen_udp = 0.0.0.0:47995
+listen_tcp = 0.0.0.0:47995
+listen_websocket = 127.0.0.1:47996
+
+# Its identity: rcs_forwarder --generate-identity FILE writes the key and
+# prints the SHA-256 the ends check (rcs_forwarder_config.forwarder_key_sha256)
+# and that the tokens name as their audience. Keep the file readable by the
+# forwarder's account only.
+identity_key_file = /etc/rcs-forwarder/identity.key
+# macOS: identity_key_file = /usr/local/etc/rcs-forwarder/identity.key
+# Windows: identity_key_file = C:\ProgramData\rcs-forwarder\identity.key
+
+# The secrets the host's server signs tokens with (rcsfwd_sign_token), 1 to
+# 4, "ID:64 hex digits" with distinct IDs: a new one beside the old while the
+# server moves to it. Make one with e.g. `openssl rand -hex 32`; the
+# forwarder does not start until this line has one.
+secret = 1:<openssl rand -hex 32>
+
+# Limits (0: the default).
+max_rooms = 64                      # Rooms at once.
+max_viewers_per_room = 64           # 1..256.
+max_ends = 1024                     # Ends at once, every entry together (each two threads).
+max_viewer_bitrate_bps = 0          # The most sent to one viewer (100 Mbit/s).
+max_pipe_bps = 0                    # A viewer's end-to-end connection, each way (50 Mbit/s).
+max_publish_bitrate_bps = 0         # A sharer's pictures and sound into its room (400 Mbit/s).
+
+# What is kept for viewers that come later: each encoding's newest keyframe
+# and the pictures after it, sealed as they came.
+cache_ms = 3000
+cache_bytes = 16777216              # A room's.
+max_cache_bytes = 268435456         # Every room's together.
+
+# The event lines (rooms opened and closed, ends that came, left or were
+# refused) go to standard output, or appended to this file. Under systemd
+# standard output is the journal (journalctl -u rcs-forwarder); a file goes
+# in /var/log/rcs-forwarder/, which the unit makes the forwarder's, and
+# SIGHUP (systemctl reload) opens it again after logrotate moved it
+# (deploy/rcs-forwarder.logrotate). A launchd job has StandardOutPath for
+# that; a Windows service needs the file.
+# log_file = /var/log/rcs-forwarder/forwarder.log
+# macOS: log_file = /usr/local/var/log/rcs-forwarder.log
+# Windows: log_file = C:\ProgramData\rcs-forwarder\forwarder.log

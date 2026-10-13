@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="input_service_label">远程控制 Demo：对方的操作</string>
+    <string name="input_service_description">共享屏幕时，让连上来的对方点按、拖动、滚动、返回和输入文字。只在“允许对方控制”打开并有人连接时起作用。</string>
+    <string name="capture_channel">共享屏幕</string>
+    <string name="capture_notification">正在共享屏幕</string>
+</resources>
