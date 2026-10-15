@@ -15,7 +15,7 @@
   - **分享端**（`RCS_ROLE_SHARE`）：监听（或经 P2P、中继、宿主通道等待），把画面、声音交给观看端，按授权执行对方的输入。默认同时服务最多 64 个观看端（`RCS_EXT_VIEWERS`），每个观看端在这次运行里有一个编号 `rcs_viewer_id`（1、2、3……，不重复使用；0 表示“不针对谁”）。
   - **观看端**（`RCS_ROLE_VIEW`）：连接分享端，收画面和声音，可以发输入、发麦克风。
 - 用错角色的函数返回 `RCS_ERROR_UNSUPPORTED`，属于另一个角色的扩展是 `RCS_ERROR_INVALID_ARGUMENT`。
-- 两端必须用同一个 SDK 版本（网络协议的版本在握手里，0.1.1-beta 是 v1），见 [21 版本、分发与许可](21-versions-distribution.md)。
+- 两端必须用同一个 SDK 版本（网络协议的版本在握手里，0.1.2-beta 是 v1），见 [21 版本、分发与许可](21-versions-distribution.md)。
 
 ## 生命周期和状态
 

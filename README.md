@@ -5,7 +5,7 @@
 **A cross-platform SDK for remote desktop and screen sharing: low latency, end-to-end encrypted, and yours to build on.**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.1--beta-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.2--beta-orange.svg)](CHANGELOG.md)
 [![CI](https://github.com/ruoyu-lab/remote-control-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/ruoyu-lab/remote-control-sdk/actions/workflows/ci.yml)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20iOS%20%7C%20Android%20%7C%20Web-lightgrey.svg)
@@ -167,7 +167,7 @@ The public interface is C (`include/rcsdk/rcsdk.h`), so any language can bind to
 
 ## Project status
 
-**0.1.1-beta.** The SDK is feature-rich and tested continuously on macOS, Windows, iOS (simulator) and Android, but it is young: every release before 1.0 may change the API and the wire protocol, and both ends must run the same version. The [roadmap](docs/ROADMAP.md) keeps "verified on real devices" apart from "implemented" — check it before you rely on a feature.
+**0.1.2-beta.** The SDK is feature-rich and tested continuously on macOS, Windows, iOS (simulator) and Android, but it is young: every release before 1.0 may change the API and the wire protocol, and both ends must run the same version. The [roadmap](docs/ROADMAP.md) keeps "verified on real devices" apart from "implemented" — check it before you rely on a feature.
 
 ## Repository layout
 

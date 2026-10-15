@@ -5,7 +5,7 @@
 **跨平台的远程桌面与屏幕共享 SDK：低延迟、端到端加密，在它之上做你自己的产品。**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.1--beta-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.1.2--beta-orange.svg)](CHANGELOG.md)
 [![CI](https://github.com/ruoyu-lab/remote-control-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/ruoyu-lab/remote-control-sdk/actions/workflows/ci.yml)
 ![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C.svg)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20iOS%20%7C%20Android%20%7C%20Web-lightgrey.svg)
@@ -165,7 +165,7 @@ if (session.start() != RCS_OK) {
 
 ## 项目状态
 
-**0.1.1-beta。** 功能已经很全，持续在 macOS、Windows、iOS（模拟器）和 Android 上测试，但它还年轻：1.0 之前每个版本都可能改接口和网络协议，两端必须运行同一个版本。[路线图](docs/ROADMAP.md)把"真机上验证过"和"已实现"分开写，依赖某项功能之前请先看一眼。
+**0.1.2-beta。** 功能已经很全，持续在 macOS、Windows、iOS（模拟器）和 Android 上测试，但它还年轻：1.0 之前每个版本都可能改接口和网络协议，两端必须运行同一个版本。[路线图](docs/ROADMAP.md)把"真机上验证过"和"已实现"分开写，依赖某项功能之前请先看一眼。
 
 ## 目录
 
