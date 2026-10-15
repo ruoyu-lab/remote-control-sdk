@@ -608,7 +608,29 @@ struct Agent::Impl {
             gatherRelayed();
             return;
         }
-        auto addresses = only ? only->addresses : localAddresses();
+        // The interface the system's default route leaves by comes first: a
+        // peer that can reach this machine over several (cable and Wi-Fi on
+        // one LAN) then sends where this end's unbound sockets send from,
+        // not over Wi-Fi into a machine that answers by cable.
+        std::vector<Endpoint> addresses;
+        size_t preferred = 0; // The first ones, the default interface's.
+        if (only) {
+            addresses = only->addresses;
+        } else {
+            auto list = interfaces();
+            const uint32_t index = defaultInterface(list);
+            std::stable_partition(list.begin(), list.end(), [&](const Interface& i) { return i.index == index; });
+            for (const auto& i : list) {
+                for (const auto& address : i.addresses) {
+                    if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+                        addresses.push_back(address);
+                    }
+                }
+                if (i.index == index) {
+                    preferred = addresses.size();
+                }
+            }
+        }
         if (extraAddresses & RCS_ICE_ADDRESSES_LOOPBACK) {
             addresses.push_back(Endpoint::parse("127.0.0.1", 0));
             addresses.push_back(Endpoint::parse("::1", 0));
@@ -622,14 +644,18 @@ struct Agent::Impl {
         if (has(true)) {
             open("::");
         }
-        // Local preferences alternate between the families, IPv6 first (RFC 8421).
-        size_t rank[2] = {0, 0};
-        for (const auto& address : addresses) {
+        // Local preferences: the default interface's above the others, and
+        // within each, alternating between the families, IPv6 first (RFC 8421).
+        size_t rank[2][2] = {};
+        for (size_t a = 0; a < addresses.size(); ++a) {
+            const auto& address = addresses[a];
+            const size_t group = a < preferred ? 0 : 1;
             for (const auto& socket : sockets) {
                 if (socket->local().ipv6() == address.ipv6()) {
                     Endpoint candidate = address;
                     candidate.setPort(socket->local().port());
-                    const size_t order = 2 * rank[address.ipv6()]++ + (address.ipv6() ? 0 : 1);
+                    const size_t order =
+                        group * 0x8000 + 2 * rank[group][address.ipv6()]++ + (address.ipv6() ? 0 : 1);
                     local.push_back({Type::host, candidate,
                                      priorityOf(Type::host, 65535 - uint32_t(std::min<size_t>(order, 65535)))});
                 }

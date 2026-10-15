@@ -168,18 +168,6 @@ std::vector<Interface> interfaces() {
     return result;
 }
 
-std::vector<Endpoint> localAddresses() {
-    std::vector<Endpoint> unique; // An address can sit on several interfaces.
-    for (const auto& i : interfaces()) {
-        for (const auto& endpoint : i.addresses) {
-            if (std::find(unique.begin(), unique.end(), endpoint) == unique.end()) {
-                unique.push_back(endpoint);
-            }
-        }
-    }
-    return unique;
-}
-
 uint32_t defaultInterface(const std::vector<Interface>& list) {
     for (const char* documentation : {"192.0.2.1", "2001:db8::1"}) {
         const auto source = sourceFor(Endpoint::parse(documentation, 9));

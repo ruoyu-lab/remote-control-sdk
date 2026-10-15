@@ -21,8 +21,6 @@ struct Interface {
 // addresses only where the interface has no stable one. Throws
 // Failure(NETWORK) with the system's error when the list cannot be read.
 std::vector<Interface> interfaces();
-// Every usable address of every interface, once.
-std::vector<Endpoint> localAddresses();
 // The index of the interface among `list` that the system's route to the
 // internet leaves by (its route to an address of the documentation's, IPv4
 // first: nothing is sent); 0 when none does.

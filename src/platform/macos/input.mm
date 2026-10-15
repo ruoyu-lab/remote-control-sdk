@@ -39,11 +39,16 @@ namespace {
 constexpr uint32_t capsLock = 57;
 constexpr CGEventFlags modifierFlags =
     kCGEventFlagMaskControl | kCGEventFlagMaskShift | kCGEventFlagMaskAlternate | kCGEventFlagMaskCommand;
+// What flags say of keys held: the modifiers and Caps Lock, Help, Fn, the
+// keypad, and the device's left and right modifier keys (the low 16 bits).
+constexpr CGEventFlags heldFlags = modifierFlags | kCGEventFlagMaskAlphaShift | kCGEventFlagMaskHelp |
+                                   kCGEventFlagMaskSecondaryFn | kCGEventFlagMaskNumericPad | 0xFFFFu;
 
 class CoreGraphicsInjector final : public InputInjector {
   public:
     CoreGraphicsInjector(const CaptureTarget& target, const std::vector<uint32_t>& streamDisplays)
-        : source_(CGEventSourceCreate(kCGEventSourceStatePrivate)), target_(target), streamDisplays_(streamDisplays),
+        : source_(CGEventSourceCreate(kCGEventSourceStatePrivate)),
+          pristine_(CGEventSourceCreate(kCGEventSourceStatePrivate)), target_(target), streamDisplays_(streamDisplays),
           display_(target.displayId ? target.displayId : CGMainDisplayID()) {
         if (target.source == RCS_CAPTURE_WINDOW) {
             if (const auto state = mac::windowState(window())) {
@@ -59,8 +64,10 @@ class CoreGraphicsInjector final : public InputInjector {
     }
     ~CoreGraphicsInjector() override {
         releaseAll();
-        if (source_) {
-            CFRelease(source_);
+        for (CGEventSourceRef source : {source_, pristine_}) {
+            if (source) {
+                CFRelease(source);
+            }
         }
         if (hid_) {
             IOServiceClose(hid_);
@@ -155,12 +162,23 @@ class CoreGraphicsInjector final : public InputInjector {
         return flags;
     }
 
-    // Keeps what the event says of its key (keypad, function key) and sets
-    // the modifiers.
+    // Sets the flags of the keys held: the modifiers, and what a key says of
+    // itself (keypad, function key; a mouse event nothing). A source's events
+    // take their flags from what it posted before, so after an arrow (Fn and
+    // keypad) a letter would come with Fn, and Fn+E or Fn+D are the system's
+    // shortcuts; a key's own flags come from a source that never posts.
     void post(CGEventRef event) {
         if (event) {
-            CGEventSetFlags(event,
-                            (CGEventGetFlags(event) & ~(modifierFlags | kCGEventFlagMaskAlphaShift)) | modifiers());
+            CGEventFlags own = 0;
+            const CGEventType type = CGEventGetType(event);
+            if (type == kCGEventKeyDown || type == kCGEventKeyUp || type == kCGEventFlagsChanged) {
+                const auto code = CGKeyCode(CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode));
+                if (CGEventRef key = CGEventCreateKeyboardEvent(pristine_, code, type != kCGEventKeyUp)) {
+                    own = CGEventGetFlags(key) & ~(modifierFlags | kCGEventFlagMaskAlphaShift);
+                    CFRelease(key);
+                }
+            }
+            CGEventSetFlags(event, (CGEventGetFlags(event) & ~heldFlags) | own | modifiers());
             CGEventPost(kCGHIDEventTap, event);
             CFRelease(event);
         }
@@ -577,6 +595,7 @@ class CoreGraphicsInjector final : public InputInjector {
     }
 
     CGEventSourceRef source_;
+    CGEventSourceRef pristine_; // Never posts: what a key says of itself (post).
     const CaptureTarget target_;
     const std::vector<uint32_t> streamDisplays_; // Streams 1, 2, ...: whole displays.
     CGDirectDisplayID display_;

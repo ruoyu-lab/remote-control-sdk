@@ -357,7 +357,7 @@ void RemoteVideo::wheelEvent(QWheelEvent* wheel) {
     rcs_input_event event = RCS_INPUT_EVENT_INIT;
     event.type = RCS_INPUT_WHEEL;
     const int lines = QGuiApplication::styleHints()->wheelScrollLines();
-    event.wheel_x = wheelX_.take(wheel->angleDelta().x(), lines);
+    event.wheel_x = wheelX_.take(-wheel->angleDelta().x(), lines); // Qt's is positive to the left, the SDK's to the right.
     event.wheel_y = wheelY_.take(wheel->angleDelta().y(), lines);
     if ((event.wheel_x || event.wheel_y) && position(wheel->position(), event, false)) {
         send(event);
