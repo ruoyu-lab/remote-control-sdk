@@ -614,16 +614,23 @@ public:
     virtual void releaseAll() noexcept = 0;
 };
 
+// How an injector executes input, where systems differ.
+struct InputOptions {
+    bool secureDesktop = false; // Windows: inject into the desktop that receives input, secure ones too.
+    rcs_caps_lock capsLock = RCS_CAPS_LOCK_INPUT_SOURCE; // macOS (rcs_control_config.caps_lock).
+    uint32_t capsLockHoldMs = 500;
+    bool operator==(const InputOptions&) const = default;
+};
+
 // Pointer positions of stream 0 map across what `target` shows (its display,
 // its region, the window where it is now); with WINDOW and APPLICATION, input
 // stays inside it (see rcs_capture_config). Those of stream N map across the
 // whole display streamDisplays[N - 1] (rcs_streams_config); another stream's
 // are INVALID_ARGUMENT. One injector serves them all, so a button pressed on
-// one display is still held on the next. `secureDesktop`: inject into the
-// desktop that receives input, secure ones too.
+// one display is still held on the next.
 std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget& target,
                                                    const std::vector<uint32_t>& streamDisplays = {},
-                                                   bool secureDesktop = false);
+                                                   const InputOptions& options = {});
 
 // The pixel, of `pixels` across, that an input position names (0 the first,
 // 65535 the last), rounded as viewers round it (rcsdk::ViewGeometry): a pixel

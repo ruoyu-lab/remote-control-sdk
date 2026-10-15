@@ -168,6 +168,11 @@ const char* screenSource(rcs_capture_source source) {
 
 } // namespace
 
+platform::InputOptions inputOptions(const SessionConfig& config) {
+    return {config.capture.secure_desktop != 0, config.control.caps_lock,
+            config.control.caps_lock_hold_ms ? config.control.caps_lock_hold_ms : 500u};
+}
+
 platform::CaptureTarget captureTarget(const rcs_capture_config& c) {
     platform::CaptureTarget target;
     target.source = c.source;

@@ -234,11 +234,10 @@ public:
     virtual void stopAudio() = 0;
 
     // Input: an injector for `target` and the displays of streams 1, 2, ...
-    // (platform::createInputInjector; following secure desktops, or not)
-    // replaces the previous one (its held keys are released), and
+    // (platform::createInputInjector, with `options`) replaces the previous one (its held keys are released), and
     // availability is reported at once.
     virtual void configureInput(const platform::CaptureTarget& target, const std::vector<uint32_t>& streamDisplays,
-                                bool secureDesktop) = 0;
+                                const platform::InputOptions& options) = 0;
     // Executes one event. Returns its result; a remote agent returns
     // kInputDeferred and reports results with Events::inputResult.
     virtual rcs_result applyInput(const rcs_input_event& event) = 0;

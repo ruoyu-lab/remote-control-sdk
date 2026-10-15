@@ -208,6 +208,9 @@ void usage() {
                  "  --allow-control     share: let the viewer control this machine\n"
                  "  --host-input        share, with --allow-control: the viewer's input comes to this program\n"
                  "                      (printed), not to the system (RCS_INPUT_HOST)\n"
+                 "  --caps-lock input-source|caps-lock   share, with --allow-control: what the viewer's Caps Lock\n"
+                 "                      does on a Mac: switch input sources as its own keyboard does (default),\n"
+                 "                      or only toggle Caps Lock\n"
                  "  --admit-after N     share: decide on each viewer N seconds after it came, as a host that asks\n"
                  "                      its user would (it waits meanwhile); admitted unless --refuse-viewers\n"
                  "  --refuse-viewers REASON   share: refuse each viewer (at once, or after --admit-after), saying\n"
@@ -1977,6 +1980,11 @@ int run(const Arguments& args) {
         }
         if (args.has("--allow-control")) {
             config.setControl(true, args.has("--host-input") ? RCS_INPUT_HOST : RCS_INPUT_SYSTEM);
+            const std::string capsLock = args.get("--caps-lock", "input-source");
+            if (capsLock != "input-source" && capsLock != "caps-lock") {
+                throw std::invalid_argument("--caps-lock takes input-source or caps-lock");
+            }
+            config.setCapsLock(capsLock == "caps-lock" ? RCS_CAPS_LOCK_CAPS_LOCK : RCS_CAPS_LOCK_INPUT_SOURCE);
         }
         if (args.has("--max-viewers") || args.has("--bitrate-from")) {
             const std::string from = args.get("--bitrate-from", "quorum");

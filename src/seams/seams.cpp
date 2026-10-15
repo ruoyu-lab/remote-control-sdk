@@ -144,12 +144,12 @@ void setInputOverride(InputOverride input) {
 
 std::unique_ptr<platform::InputInjector> createInputInjector(const platform::CaptureTarget& target,
                                                              const std::vector<uint32_t>& streamDisplays,
-                                                             bool secureDesktop) {
+                                                             const platform::InputOptions& options) {
     std::unique_lock lock(mutex);
     const auto factory = inputOverride.factory;
     lock.unlock();
-    return factory ? factory(target, secureDesktop)
-                   : platform::createInputInjector(target, streamDisplays, secureDesktop);
+    return factory ? factory(target, options)
+                   : platform::createInputInjector(target, streamDisplays, options);
 }
 
 rcs_permission inputPermission() {

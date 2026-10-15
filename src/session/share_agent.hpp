@@ -138,9 +138,9 @@ class AgentInjector final : public platform::InputInjector {
 public:
     // Sets the agent's injector up for `target` and the displays of streams 1, 2, ...
     AgentInjector(agent::Port& port, const platform::CaptureTarget& target,
-                  const std::vector<uint32_t>& streamDisplays, bool secureDesktop)
+                  const std::vector<uint32_t>& streamDisplays, const platform::InputOptions& options)
         : port_(port) {
-        port.configureInput(target, streamDisplays, secureDesktop);
+        port.configureInput(target, streamDisplays, options);
     }
     // Ctrl+Alt+Del is sent by the session's own process (Windows: the service
     // in session 0 can, the user's session cannot), to the agent's session;

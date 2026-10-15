@@ -55,7 +55,7 @@ extern "C" {
 /* The version of these headers. The build reads it from here. */
 #define RCSDK_VERSION_MAJOR 0u
 #define RCSDK_VERSION_MINOR 1u
-#define RCSDK_VERSION_PATCH 3u
+#define RCSDK_VERSION_PATCH 4u
 /* Before a release: its stage ("alpha", "beta", "rc1"); empty in a release. */
 #define RCSDK_VERSION_LABEL "beta"
 #define RCSDK_VERSION ((RCSDK_VERSION_MAJOR << 16) | (RCSDK_VERSION_MINOR << 8) | RCSDK_VERSION_PATCH)
@@ -1112,6 +1112,22 @@ RCS_INLINE rcs_streams_config rcs_streams_config_init(void) {
 typedef uint32_t rcs_input_target;
 enum { RCS_INPUT_SYSTEM = 0, RCS_INPUT_HOST = 1 };
 
+/* What the viewer's Caps Lock does (target SYSTEM).
+ *   INPUT_SOURCE  As a Mac's own keyboard does while a non-Latin input source
+ *                 (Pinyin, Korean, Japanese...) is enabled: a press switches
+ *                 between it and the Latin one (ABC), the last used of each;
+ *                 held caps_lock_hold_ms it toggles Caps Lock, and while Caps
+ *                 Lock is on a press turns it off. The system's own setting
+ *                 for this ("Use the Caps Lock key to switch") is not given to
+ *                 programs, so the host chooses. Without a non-Latin input
+ *                 source, and on other systems, as CAPS_LOCK. Input sources
+ *                 switched elsewhere (the menu, the Mac's own keyboard) reach
+ *                 the process through its main thread's run loop, which a
+ *                 macOS host keeps running.
+ *   CAPS_LOCK     Toggles Caps Lock. */
+typedef uint32_t rcs_caps_lock;
+enum { RCS_CAPS_LOCK_INPUT_SOURCE = 0, RCS_CAPS_LOCK_CAPS_LOCK = 1 };
+
 /* Remote control. Without it: not allowed. While allowed, the viewer may send
  * input once the sharer announces the grant (RCS_EVENT_CONTROL on both ends).
  * With target SYSTEM the grant also follows the system: a lock screen, a UAC
@@ -1141,8 +1157,13 @@ typedef struct rcs_control_config {
      * concern the types left to it: with every type handed over it needs
      * nothing, as with target HOST. */
     uint32_t host_input_types;
+    rcs_caps_lock caps_lock; /* INPUT_SOURCE (default). */
+    /* INPUT_SOURCE: how long Caps Lock is held to toggle Caps Lock instead,
+     * 100..5000 ms; 0: 500. */
+    uint32_t caps_lock_hold_ms;
 } rcs_control_config;
-#define RCS_CONTROL_CONFIG_INIT {{RCS_EXT_CONTROL, sizeof(rcs_control_config), NULL}, 0u, RCS_INPUT_SYSTEM, 0u}
+#define RCS_CONTROL_CONFIG_INIT \
+    {{RCS_EXT_CONTROL, sizeof(rcs_control_config), NULL}, 0u, RCS_INPUT_SYSTEM, 0u, RCS_CAPS_LOCK_INPUT_SOURCE, 0u}
 RCS_INLINE rcs_control_config rcs_control_config_init(void) {
     rcs_control_config value = RCS_CONTROL_CONFIG_INIT;
     return value;

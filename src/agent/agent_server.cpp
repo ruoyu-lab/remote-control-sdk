@@ -415,7 +415,7 @@ void AgentServer::attachment(const std::shared_ptr<std::atomic<bool>>& cancel, b
                            [&](link::StartAudio&& m) { media.startAudio(m.start); },
                            [&](link::StopAudio&&) { media.stopAudio(); },
                            [&](link::ConfigureInput&& m) {
-                               media.configureInput(m.target, m.streamDisplays, m.secureDesktop);
+                               media.configureInput(m.target, m.streamDisplays, m.options);
                            },
                            [&](link::ApplyInput&& m) { events.inputApplied(media.applyInput(m.event)); },
                            [&](link::ReleaseInput&&) { media.releaseInput(); },

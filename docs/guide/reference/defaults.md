@@ -1,4 +1,4 @@
-# 默认值（0.1.3-beta）
+# 默认值（0.1.4-beta）
 
 每个结构体用它的 `*_INIT` 宏初始化，宏里就是下面这些值（也是预设 `BALANCED` 的值；其他预设改的字段见 [API-DESIGN 第 6 节](../../API-DESIGN.md#6-预设的取值)）。不放进扩展链的扩展取预设的值。以头文件为准：`include/rcsdk/*.h`、各模块的头文件。
 
@@ -22,7 +22,7 @@
 | `rcs_encoder_config`（`RCS_ENCODER_CONFIG_INIT`） | `codecs` {H.264}；`formats` {`RCS_PICTURE_420_8`}；`RCS_MATRIX_BT709`、`RCS_RANGE_LIMITED`；`RCS_ACCELERATION_HARDWARE`；`RCS_BACKEND_AUTO` |
 | `rcs_capture_config`（`RCS_CAPTURE_CONFIG_INIT`） | `RCS_CAPTURE_DISPLAY`、`display_id` 0（主显示器）、区域 / 窗口 / 进程 0、`exclude_current_process` 0、`secure_desktop` 0 |
 | `rcs_streams_config`（`RCS_STREAMS_CONFIG_INIT`） | `displays` 全 0（只有第 0 路）、`weights` 全 0（按像素分码率） |
-| `rcs_control_config`（`RCS_CONTROL_CONFIG_INIT`） | `allowed` 0、`RCS_INPUT_SYSTEM`、`host_input_types` 0 |
+| `rcs_control_config`（`RCS_CONTROL_CONFIG_INIT`） | `allowed` 0、`RCS_INPUT_SYSTEM`、`host_input_types` 0、`caps_lock` `RCS_CAPS_LOCK_INPUT_SOURCE`、`caps_lock_hold_ms` 0（500 ms） |
 | `rcs_viewers_config`（`RCS_VIEWERS_CONFIG_INIT`） | `max_viewers` 0（64）、`RCS_BITRATE_FROM_QUORUM`、`quorum_percent` 50、`admission_timeout_ms` 60 000 |
 | `rcs_encodings_config`（`RCS_ENCODINGS_CONFIG_INIT`） | `RCS_ENCODINGS_AUTO`（需要时才开低档）、`count` 2；`lower[]` 的 `frames_per_second` 0（主档的一半，第二档四分之一）、`max_pixel_rate` 0（1920×1080×30）、`codecs` 全 0（本端的）、`RCS_SCALABILITY_L1T1`；主档 `scalability` `RCS_SCALABILITY_L1T1`（不分层） |
 | `rcs_view_request_config`（`RCS_VIEW_REQUEST_CONFIG_INIT`） | 全 0（分享端决定）、`cursor` `RCS_CURSOR_IN_VIDEO` |

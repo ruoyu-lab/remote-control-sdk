@@ -171,7 +171,7 @@ void MediaAgent::stopAudio() {
 // ---- Input -------------------------------------------------------------------------------------
 
 void MediaAgent::configureInput(const platform::CaptureTarget& target, const std::vector<uint32_t>& streamDisplays,
-                                bool secureDesktop) {
+                                const platform::InputOptions& options) {
     // What modules are told is shared (rcs_module_get_shared): the main display
     // (display id 0) named as it is now, as input resolves it when it starts.
     auto shared = target;
@@ -183,7 +183,7 @@ void MediaAgent::configureInput(const platform::CaptureTarget& target, const std
     }
     std::unique_ptr<platform::InputInjector> injector;
     try {
-        injector = seams::createInputInjector(target, streamDisplays, secureDesktop);
+        injector = seams::createInputInjector(target, streamDisplays, options);
     } catch (const Failure& failure) {
         // No display to inject into (a machine without one, as a server
         // sharing the host's own pictures): input is unavailable, as on a lock
@@ -198,7 +198,7 @@ void MediaAgent::configureInput(const platform::CaptureTarget& target, const std
         }
         injector_ = std::move(injector);
         shared_ = shared;
-        secureInput_ = secureDesktop;
+        secureInput_ = options.secureDesktop;
         available_ = none ? 0 : -1;
     }
     if (none) {

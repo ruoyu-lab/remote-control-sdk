@@ -209,20 +209,26 @@ void messages() {
           lowerFailed.message == "no session to spare");
     CHECK(throws<Failure>([] { link::decode(link::encode(link::EncodingFailed{0, 0, RCS_ERROR_CODEC, "Failed's"})); }));
     CHECK(throws<Failure>([] { link::decode(link::encode(link::StopVideo{0, RCS_MAX_ENCODINGS})); }));
-    const auto displays = roundTrip(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 3}, {5, 6}, false}).streamDisplays;
+    const auto displays = roundTrip(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 3}, {5, 6}, {}}).streamDisplays;
     CHECK((displays == std::vector<uint32_t>{5, 6}));
     CHECK(!roundTrip(link::SetCursorInVideo{false}).inVideo);
     CHECK(roundTrip(link::SetInputBoost{25}).ms == 25);
     CHECK((roundTrip(link::Backlog{{123'456, 7, 0}}).ns == std::array<uint64_t, RCS_MAX_ENCODINGS>{123'456, 7, 0}));
     const auto audio = roundTrip(link::StartAudio{{RCS_AUDIO_CAPTURE_WASAPI_LOOPBACK, true, 480}}).start;
     CHECK(audio.backend == RCS_AUDIO_CAPTURE_WASAPI_LOOPBACK && audio.excludeCurrentProcess && audio.periodFrames == 480);
-    const auto configure = roundTrip(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 3}, {}, true});
-    CHECK(configure.target.displayId == 3 && configure.secureDesktop);
+    const auto configure =
+        roundTrip(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 3}, {}, {true, RCS_CAPS_LOCK_CAPS_LOCK, 800}});
+    const platform::InputOptions options{true, RCS_CAPS_LOCK_CAPS_LOCK, 800};
+    CHECK(configure.target.displayId == 3 && configure.options == options);
+    const platform::InputOptions invalids[] = {{false, 2, 500}, {false, 0, 99}, {false, 0, 5001}};
+    for (const auto& invalid : invalids) {
+        CHECK(throws<Failure>([&] { link::decode(link::encode(link::ConfigureInput{{}, {}, invalid})); }));
+    }
     // What is captured: a region of a display, a window, an application's windows.
     const platform::CaptureTarget region{RCS_CAPTURE_REGION, 2, {100, 50, 640, 480}};
-    CHECK(roundTrip(link::ConfigureInput{region, {}, false}).target == region);
+    CHECK(roundTrip(link::ConfigureInput{region, {}, {}}).target == region);
     const platform::CaptureTarget window{RCS_CAPTURE_WINDOW, 0, {}, 0x1234'5678'9ABCull};
-    CHECK(roundTrip(link::ConfigureInput{window, {}, false}).target == window);
+    CHECK(roundTrip(link::ConfigureInput{window, {}, {}}).target == window);
     start.stream.target = {RCS_CAPTURE_APPLICATION, 1, {}, 0, 4321};
     CHECK(roundTrip(link::StartVideo{start}).start.stream.target == start.stream.target);
     start.stream.target = {RCS_CAPTURE_DISPLAY, 2};
@@ -430,16 +436,16 @@ void messages() {
     CHECK(bad(link::encode(link::Desktop{{7, false}}))); // A desktop no version defines.
     // Targets: the machine captures a display, a region, a window or an
     // application, each with what it needs; never the host's own pictures.
-    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_HOST}, {}, false})));
-    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_WINDOW}, {}, false})));      // No window.
-    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_APPLICATION}, {}, false}))); // No process.
-    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_REGION, 0, {0, 0, 8, 600}}, {}, false})));
+    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_HOST}, {}, {}})));
+    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_WINDOW}, {}, {}})));      // No window.
+    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_APPLICATION}, {}, {}}))); // No process.
+    CHECK(bad(link::encode(link::ConfigureInput{{RCS_CAPTURE_REGION, 0, {0, 0, 8, 600}}, {}, {}})));
     // Only the session says that no agent is there.
     CHECK(bad(link::encode(link::Capture{0, {RCS_CAPTURE_PAUSE_AGENT, 0, 0, 0}})));
     rcs_window_info nameless{}; // A window without an id.
     CHECK(bad(link::encode(link::WindowList{1, {nameless}})));
-    auto twoFlags = link::encode(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 1}, {}, true});
-    twoFlags.back() = 2; // A flag is 0 or 1.
+    auto twoFlags = link::encode(link::ConfigureInput{{RCS_CAPTURE_DISPLAY, 1}, {}, {true}});
+    twoFlags[twoFlags.size() - 9] = 2; // A flag is 0 or 1 (before the Caps Lock settings' 8 bytes).
     CHECK(bad(twoFlags));
     // Results: only those a version defines, and a failure is never success.
     CHECK(bad(link::encode(link::Failed{RCS_OK, "nothing"})));
@@ -1037,6 +1043,7 @@ struct InputRecorder {
     std::atomic<bool> refuse{false};
     std::atomic<bool> failNext{false}; // The next injector cannot be made.
     platform::CaptureTarget target;    // What the last injector was made for (under mutex).
+    platform::InputOptions options;    // And how it executes input (under mutex).
     size_t count() {
         std::lock_guard lock(mutex);
         return applied.size();
@@ -1091,15 +1098,16 @@ void attaching() {
     InputRecorder recorder;
     seams::InputOverride input;
     input.factory = [&](const platform::CaptureTarget& target,
-                        bool secure) -> std::unique_ptr<platform::InputInjector> {
+                        const platform::InputOptions& options) -> std::unique_ptr<platform::InputInjector> {
         {
             std::lock_guard lock(recorder.mutex);
             recorder.target = target;
+            recorder.options = options;
         }
         if (recorder.failNext.exchange(false)) {
             fail(RCS_ERROR_UNSUPPORTED, "No injector here (test)");
         }
-        recorder.secureFlag = secure ? 1 : 0;
+        recorder.secureFlag = options.secureDesktop ? 1 : 0;
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [&] { return recorder.available ? RCS_PERMISSION_GRANTED : RCS_PERMISSION_REQUIRED; };
@@ -1305,13 +1313,14 @@ void attaching() {
     CHECK(waitFor([&] { return events.read([](Recorder& r) { return r.desktops.back().kind == RCS_DESKTOP_USER; }); }));
 
     // Input: executed on the agent's machine, results reported, availability followed.
-    hub.configureInput({RCS_CAPTURE_WINDOW, 0, {}, 42}, {}, true);
+    hub.configureInput({RCS_CAPTURE_WINDOW, 0, {}, 42}, {}, {true, RCS_CAPS_LOCK_CAPS_LOCK, 900});
     CHECK(waitFor([&] { return recorder.secureFlag.load() == 1; })); // The injector was made to follow secure desktops.
     {
         std::lock_guard lock(recorder.mutex);
         CHECK(recorder.target.source == RCS_CAPTURE_WINDOW && recorder.target.windowId == 42); // For what is shared.
+        CHECK((recorder.options == platform::InputOptions{true, RCS_CAPS_LOCK_CAPS_LOCK, 900}));    // As configured.
     }
-    hub.configureInput({}, {}, false);
+    hub.configureInput({}, {}, {});
     CHECK(waitFor([&] { return recorder.secureFlag.load() == 0; }));
     CHECK(waitFor([&] { return events.read([](Recorder& r) { return !r.availability.empty() && bool(r.availability.back()); }); }));
     rcs_input_event press = RCS_INPUT_EVENT_INIT;
@@ -1396,9 +1405,9 @@ void attaching() {
     // Input that cannot be set up (no display to inject into): input is
     // unavailable and the agent stays; set up again, it is available.
     recorder.failNext = true;
-    hub.configureInput({}, {}, false);
+    hub.configureInput({}, {}, {});
     CHECK(waitFor([&] { return events.read([](Recorder& r) { return !bool(r.availability.back()); }); }));
-    hub.configureInput({}, {}, false);
+    hub.configureInput({}, {}, {});
     CHECK(waitFor([&] { return events.read([](Recorder& r) { return bool(r.availability.back()); }); }));
     CHECK(events.read([](Recorder& r) { return r.detachedCount == 0; }));
 

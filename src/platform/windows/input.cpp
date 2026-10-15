@@ -459,8 +459,9 @@ private:
 } // namespace
 
 std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget& target,
-                                                   const std::vector<uint32_t>& streamDisplays, bool secureDesktop) {
-    return std::make_unique<SendInputInjector>(target, streamDisplays, secureDesktop);
+                                                   const std::vector<uint32_t>& streamDisplays,
+                                                   const InputOptions& options) {
+    return std::make_unique<SendInputInjector>(target, streamDisplays, options.secureDesktop);
 }
 
 } // namespace rcsdk::platform

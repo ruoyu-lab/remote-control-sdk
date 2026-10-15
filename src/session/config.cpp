@@ -286,6 +286,9 @@ void parseControl(const rcs_extension& extension, const char* name, SessionConfi
             "host_input_types holds a bit that is no input type (1u << rcs_input_type)");
     require(!c.host_input_types || c.target == RCS_INPUT_SYSTEM, name,
             "host_input_types applies to target RCS_INPUT_SYSTEM; with RCS_INPUT_HOST the host executes every type");
+    require(c.caps_lock <= RCS_CAPS_LOCK_CAPS_LOCK, name, "unknown caps_lock");
+    require(!c.caps_lock_hold_ms || (c.caps_lock_hold_ms >= 100 && c.caps_lock_hold_ms <= 5000), name,
+            "caps_lock_hold_ms must be 0 or 100..5000");
     next.control = c;
 }
 

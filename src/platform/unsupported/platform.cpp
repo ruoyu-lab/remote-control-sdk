@@ -50,7 +50,7 @@ std::unique_ptr<VideoEncoder> createVideoEncoder(const EncoderConfig&) {
 std::unique_ptr<VideoDecoder> createVideoDecoder(const DecoderConfig&) {
     fail(RCS_ERROR_UNSUPPORTED, "Video decoding is not available on this platform");
 }
-std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, bool) {
+std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, const InputOptions&) {
     fail(RCS_ERROR_UNSUPPORTED, "Input injection is not available on this platform");
 }
 std::optional<SharedArea> sharedArea(const CaptureTarget&) {

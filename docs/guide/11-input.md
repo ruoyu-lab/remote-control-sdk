@@ -7,6 +7,8 @@
 | `allowed` | 1 允许观看端控制。一对多时是新来者的默认，运行中改会设置所有在场的观看端（单个观看端用 `rcs_session_set_viewer_control`，加入时用 `on_viewer_join` 的 `decision->control`） | 0 |
 | `target` | `RCS_INPUT_SYSTEM`：本机执行（注入到系统，需要输入权限）；`RCS_INPUT_HOST`：全部交给宿主的 `on_input`，不碰系统、不需要权限 | `SYSTEM` |
 | `host_input_types` | `target` 为 `SYSTEM` 时交给宿主执行的类型（`1u << rcs_input_type` 位），例如只接管触摸或笔给自己的画布，键鼠仍由系统执行；需要 `on_input` | 0 |
+| `caps_lock` | 观看端的 Caps Lock 做什么（见下面的 [Caps Lock](#caps-lock)）：`RCS_CAPS_LOCK_INPUT_SOURCE` 像 Mac 自己的键盘那样切换输入法；`RCS_CAPS_LOCK_CAPS_LOCK` 只切大小写 | `INPUT_SOURCE` |
+| `caps_lock_hold_ms` | `INPUT_SOURCE` 时按住多久算切大小写，100..5000 | 0：500 ms |
 
 1. 分享端允许控制（C++ `setControl(true)`；配置时或运行中 `rcs_session_update` 都可以）。由本机执行时需要输入权限（macOS 的“辅助功能”；Windows 在用户会话里的进程就有），没有时是 `RCS_ERROR_PERMISSION_REQUIRED`。
 2. SDK 通知观看端已获授权，两端都收到 `RCS_EVENT_CONTROL`（`rcs_control_info`：`allowed` 是宿主的设置，`granted` 是此刻是否真的能控制）。观看端等到 `granted` 再发输入。
@@ -14,6 +16,15 @@
 4. 撤销控制、观看端断线、会话停止时，SDK 自动释放所有被按住的键、鼠标按钮、触点和笔；宿主执行输入时会收到 `RCS_INPUT_RELEASE_ALL`（换执行者、控制被暂停或收回、观看端走了），要把自己按住的都放开。
 5. 被控端锁屏、弹出 UAC 安全桌面，或者系统撤回了输入权限时，授权**暂停**（只对本机执行的输入）：按住的键被释放，观看端的 `granted` 变成 0，`send_input` 返回 `INVALID_STATE`；系统重新接受输入后自动恢复。跟随安全桌面时锁屏和 UAC 不再让它暂停（[16](16-unattended.md)）。
 6. 单个事件被系统拒绝（例如前台是以管理员身份运行的窗口）时，只释放按键并记入输入统计的 `last_result`，授权保持。
+
+### Caps Lock
+
+Mac 开了中文、日文、韩文这类非拉丁输入法时，它自己的键盘默认用 Caps Lock 切换中英文：短按切到 ABC 或切回去，按住才锁定大写，大写锁定时按一下是关掉它。这是键盘驱动那一层做的，程序发出的按键事件到不了那里，所以 SDK 自己按这个规则执行（C++ `setCapsLock`）：
+
+- `RCS_CAPS_LOCK_INPUT_SOURCE`（默认）：在非拉丁输入法和拉丁输入法之间切换，各自是最近用过的那一个（例如拼音和 ABC）；按住 `caps_lock_hold_ms` 切大小写，大写锁定时按一下是关掉。Mac 上没开非拉丁输入法时、以及其他系统上，和 `CAPS_LOCK` 一样。
+- `RCS_CAPS_LOCK_CAPS_LOCK`：每按一次切一次大小写。
+
+Mac 的系统设置里“用 Caps Lock 键切换”这一项没有给程序读的接口，SDK 不知道用户关没关它，所以由宿主决定用哪一种，比如在自己的设置里给用户一个选项。用户在 Mac 本机（菜单栏、键盘）切换的输入法，经进程主线程的 run loop 才被 SDK 看到；macOS 宿主本来就要让它转着（[02](02-threading.md)）。
 
 ## 观看端：发送输入，`rcs_session_send_input`
 

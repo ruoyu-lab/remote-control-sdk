@@ -2969,7 +2969,7 @@ void hostSources(const uint8_t (&key)[32]) {
     // own pictures): the picture goes on; control, though allowed, is not granted.
     rcsdk::seams::InputOverride noDisplay;
     noDisplay.factory = [](const rcsdk::platform::CaptureTarget&,
-                           bool) -> std::unique_ptr<rcsdk::platform::InputInjector> {
+                           const rcsdk::platform::InputOptions&) -> std::unique_ptr<rcsdk::platform::InputInjector> {
         rcsdk::fail(RCS_ERROR_UNSUPPORTED, "The input display is not available");
     };
     noDisplay.permission = [] { return RCS_PERMISSION_GRANTED; };
@@ -3037,7 +3037,7 @@ private:
 void control(const uint8_t (&key)[32]) {
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [&] {
@@ -3125,7 +3125,7 @@ void control(const uint8_t (&key)[32]) {
 void hostInput(const uint8_t (&key)[32]) {
     InputRecorder recorder; // The system's injector: must stay unused.
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] { return RCS_PERMISSION_REQUIRED; }; // Not needed for the host.
@@ -3171,6 +3171,52 @@ void hostInput(const uint8_t (&key)[32]) {
     rcsdk::seams::setInputOverride({});
 }
 
+// What the viewer's Caps Lock does reaches the system's injector (a hold of 0:
+// 500 ms); a change while running makes a new one; values no version defines
+// are refused.
+void capsLock(const uint8_t (&key)[32]) {
+    using rcsdk::platform::InputOptions;
+    InputRecorder recorder;
+    std::mutex mutex;
+    std::optional<InputOptions> made; // The last injector's.
+    rcsdk::seams::InputOverride input;
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const InputOptions& options) {
+        std::lock_guard lock(mutex);
+        made = options;
+        return std::make_unique<RecordingInjector>(recorder);
+    };
+    input.permission = [] {
+        return RCS_PERMISSION_GRANTED;
+    };
+    overrideInput(std::move(input));
+    {
+        for (const auto& [capsLock, holdMs] : {std::pair{2u, 0u}, {RCS_CAPS_LOCK_INPUT_SOURCE, 99u},
+                                                {RCS_CAPS_LOCK_INPUT_SOURCE, 5001u}}) {
+            CHECK(throws<rcsdk::Error>([&] {
+                rcsdk::Session invalid(config(RCS_ROLE_SHARE, 47851, key).setControl(true).setCapsLock(capsLock, holdMs));
+            }));
+        }
+        const auto last = [&] {
+            std::lock_guard lock(mutex);
+            return made;
+        };
+        rcsdk::Session share(config(RCS_ROLE_SHARE, 47851, key).setControl(true).setCapsLock(RCS_CAPS_LOCK_CAPS_LOCK, 800));
+        rcsdk::Session view(config(RCS_ROLE_VIEW, 47851, key));
+        CHECK(share.start() == RCS_OK);
+        CHECK(waitFor([&] { return share.state() == RCS_STATE_LISTENING; }));
+        CHECK(view.start() == RCS_OK);
+        CHECK(waitFor([&] { return view.controlInfo().granted != 0; }));
+        CHECK((last() == InputOptions{false, RCS_CAPS_LOCK_CAPS_LOCK, 800}));
+        auto control = rcsdk::defaults<rcs_control_config>();
+        control.allowed = 1;
+        CHECK(share.update(control) == RCS_OK);
+        CHECK(waitFor([&] { return last() == InputOptions{false, RCS_CAPS_LOCK_INPUT_SOURCE, 500}; }));
+        CHECK(view.stop() == RCS_OK);
+        CHECK(share.stop() == RCS_OK);
+    }
+    rcsdk::seams::setInputOverride({});
+}
+
 // Types the host executes beside the system (host_input_types): touch goes to
 // the host whatever on_input returns, keys to the system as on_input decides,
 // release-all to both; the viewer learns the sharer takes touch; handing it
@@ -3178,7 +3224,7 @@ void hostInput(const uint8_t (&key)[32]) {
 void hostInputTypes(const uint8_t (&key)[32]) {
     InputRecorder recorder; // The system's injector.
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -3469,7 +3515,7 @@ void textCaret(const uint8_t (&key)[32]) {
     useTextCaret();
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -3692,8 +3738,8 @@ void machineState(const uint8_t (&key)[32]) {
     rcsdk::seams::setSecureCapabilities({true, true});
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool secure) {
-        recorder.secureFlag = secure ? 1 : 0;
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions& options) {
+        recorder.secureFlag = options.secureDesktop ? 1 : 0;
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -3835,7 +3881,7 @@ void agents(const uint8_t (&key)[32]) {
     const auto linkKey = rcsdk::generateConnectionKey();
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [&] { return recorder.available ? RCS_PERMISSION_GRANTED : RCS_PERMISSION_REQUIRED; };
@@ -7068,7 +7114,7 @@ void streams(const uint8_t (&key)[32]) {
         [](const rcsdk::platform::CaptureTarget& target) { return std::make_unique<DisplayCapture>(target.displayId); });
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] { return RCS_PERMISSION_GRANTED; };
@@ -7463,7 +7509,7 @@ void viewers(const uint8_t (&key)[32], rcs_transport transport, uint16_t port) {
 void viewerControl(const uint8_t (&key)[32]) {
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -10382,7 +10428,7 @@ void powerActionsScenario(const uint8_t (&key)[32]) {
     const auto machine = testPowerMachine();
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -11487,7 +11533,7 @@ void migration(const uint8_t (&key)[32]) {
 void pathHold(const uint8_t (&key)[32]) {
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -12647,7 +12693,7 @@ void forwarderControl(const uint8_t (&key)[32]) {
 #ifdef RCSDK_TEST_FORWARDER
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -12959,7 +13005,7 @@ void forwarderFiles(const uint8_t (&key)[32]) {
 #ifdef RCSDK_TEST_FORWARDER
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -13884,7 +13930,7 @@ rcsdk::SessionConfig tcpViewer(rcsdk::test::TcpProxy& proxy, const uint8_t (&key
 void migrationTcp(const uint8_t (&key)[32]) {
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -13996,7 +14042,7 @@ void migrationTcp(const uint8_t (&key)[32]) {
 void pathHoldTcp(const uint8_t (&key)[32]) {
     InputRecorder recorder;
     rcsdk::seams::InputOverride input;
-    input.factory = [&](const rcsdk::platform::CaptureTarget&, bool) {
+    input.factory = [&](const rcsdk::platform::CaptureTarget&, const rcsdk::platform::InputOptions&) {
         return std::make_unique<RecordingInjector>(recorder);
     };
     input.permission = [] {
@@ -14321,6 +14367,7 @@ const std::vector<Scenario>& scenarios() {
         {"control", control, true, {"control: Remote control granted"}},
         {"host_input", hostInput, true},
         {"host_input_types", hostInputTypes, true},
+        {"caps_lock", capsLock, false},
         {"text_caret", textCaret, true},
         {"power", power, true},
         {"power_actions", powerActionsScenario, true, {"power: Viewer 1 asked to shut down: refused"}},

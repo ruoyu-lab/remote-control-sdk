@@ -98,7 +98,7 @@ struct StopAudio {};
 struct ConfigureInput {
     platform::CaptureTarget target;
     std::vector<uint32_t> streamDisplays;
-    bool secureDesktop = false;
+    platform::InputOptions options;
 };
 struct ApplyInput {
     rcs_input_event event = RCS_INPUT_EVENT_INIT;

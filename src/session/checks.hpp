@@ -45,6 +45,8 @@ using MachineRef = const agent::Machine*;
 
 // What the machine captures for these settings, as the agent takes it.
 platform::CaptureTarget captureTarget(const rcs_capture_config& capture);
+// How the machine executes the viewer's input for these settings.
+platform::InputOptions inputOptions(const SessionConfig& config);
 // A capture's settings against the machine that captures (a session's, and
 // rcs_capture_picture's `what`): a source it does not offer, a display it
 // does not list, a region not inside its display, missing permission.

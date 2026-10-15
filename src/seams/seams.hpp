@@ -56,7 +56,8 @@ std::unique_ptr<platform::AudioPlayer> createAudioPlayer();
 // (rcs_capabilities.input_types) instead of the system's, e.g. on a system
 // that executes none (iOS).
 struct InputOverride {
-    std::function<std::unique_ptr<platform::InputInjector>(const platform::CaptureTarget& target, bool secureDesktop)>
+    std::function<std::unique_ptr<platform::InputInjector>(const platform::CaptureTarget& target,
+                                                            const platform::InputOptions& options)>
         factory;
     std::function<rcs_permission()> permission;
     std::function<bool(bool secureDesktop)> available;
@@ -65,7 +66,7 @@ struct InputOverride {
 void setInputOverride(InputOverride input);
 std::unique_ptr<platform::InputInjector> createInputInjector(const platform::CaptureTarget& target,
                                                              const std::vector<uint32_t>& streamDisplays,
-                                                             bool secureDesktop);
+                                                             const platform::InputOptions& options);
 rcs_permission inputPermission();
 bool inputAvailable(bool secureDesktop);
 

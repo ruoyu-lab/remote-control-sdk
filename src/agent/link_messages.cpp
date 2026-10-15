@@ -18,7 +18,7 @@ using protocol::Writer;
 
 // The codecs some version defines, as (1u << codec) bits.
 // The first seven bytes never change; the eighth is the link's format.
-constexpr uint8_t linkMagic[8] = {'R', 'C', 'S', 'L', 'I', 'N', 'K', 1};
+constexpr uint8_t linkMagic[8] = {'R', 'C', 'S', 'L', 'I', 'N', 'K', 2};
 
 enum Type : uint8_t {
     agentHelloType = 0,
@@ -714,7 +714,7 @@ Bytes encode(const Message& message) {
             for (const uint32_t display : m.streamDisplays) {
                 w.u32(display);
             }
-            return w.u8(m.secureDesktop).take();
+            return w.u8(m.options.secureDesktop).u32(m.options.capsLock).u32(m.options.capsLockHoldMs).take();
         }
         Bytes operator()(const ApplyInput& m) const {
             Writer w(applyInputType);
@@ -922,7 +922,13 @@ Message decode(std::span<const uint8_t> bytes) {
         for (uint8_t i = 0; i < displays; ++i) {
             m.streamDisplays.push_back(r.u32());
         }
-        m.secureDesktop = flag(r.u8());
+        m.options.secureDesktop = flag(r.u8());
+        m.options.capsLock = r.u32();
+        m.options.capsLockHoldMs = r.u32();
+        if (m.options.capsLock > RCS_CAPS_LOCK_CAPS_LOCK || m.options.capsLockHoldMs < 100 ||
+            m.options.capsLockHoldMs > 5000) {
+            Reader::invalid("caps lock");
+        }
         r.end();
         return m;
     }

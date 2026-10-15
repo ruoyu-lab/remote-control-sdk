@@ -726,7 +726,7 @@ private:
         }
         cursorFollowsVideo_ = cursorInVideo;
         if (captureMoved || live_.control.target != previous.control.target ||
-            c.secure_desktop != previous.capture.secure_desktop) {
+            inputOptions(live_) != inputOptions(previous)) {
             useInjector();
         }
         agent_.port().setInputBoost(live_.videoTuning.input_boost_ms);
@@ -1147,7 +1147,7 @@ private:
             injector = std::make_unique<HostInput>(session_.shareControl().hostRelease);
         } else {
             injector = std::make_unique<AgentInjector>(agent_.port(), captureTarget(live_.capture),
-                                                       streamDisplays(live_), live_.capture.secure_desktop != 0);
+                                                       streamDisplays(live_), inputOptions(live_));
         }
         auto& control = session_.shareControl();
         std::lock_guard lock(control.mutex);

@@ -1,7 +1,9 @@
 // Remote input execution with CoreGraphics events. Keys go in as virtual key
 // codes (the place of the key; the layout decides what it types), see
-// platform/keys.hpp. Caps Lock is a lock, not a key: a press toggles the HID
-// system's Caps Lock state, which posted key events cannot change. Media keys
+// platform/keys.hpp. Caps Lock is a lock, not a key: posted key events can
+// neither change the HID system's Caps Lock state nor switch input sources as
+// the keyboard's own Caps Lock does, so the injector does both itself (Text
+// Input Sources, rcs_caps_lock). Media keys
 // are system-defined auxiliary key events, text goes in as the Unicode string
 // of a key event, and the pen as tablet events (proximity, then mouse events
 // carrying pressure and tilt). macOS has no touch screens: touch is
@@ -20,6 +22,7 @@
 
 #import <AppKit/AppKit.h>
 #import <ApplicationServices/ApplicationServices.h>
+#import <Carbon/Carbon.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/hidsystem/IOHIDLib.h>
@@ -29,6 +32,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <optional>
 #include <utility>
@@ -46,8 +50,9 @@ constexpr CGEventFlags heldFlags = modifierFlags | kCGEventFlagMaskAlphaShift | 
 
 class CoreGraphicsInjector final : public InputInjector {
   public:
-    CoreGraphicsInjector(const CaptureTarget& target, const std::vector<uint32_t>& streamDisplays)
-        : source_(CGEventSourceCreate(kCGEventSourceStatePrivate)),
+    CoreGraphicsInjector(const CaptureTarget& target, const std::vector<uint32_t>& streamDisplays,
+                         const InputOptions& options)
+        : options_(options), source_(CGEventSourceCreate(kCGEventSourceStatePrivate)),
           pristine_(CGEventSourceCreate(kCGEventSourceStatePrivate)), target_(target), streamDisplays_(streamDisplays),
           display_(target.displayId ? target.displayId : CGMainDisplayID()) {
         if (target.source == RCS_CAPTURE_WINDOW) {
@@ -64,9 +69,9 @@ class CoreGraphicsInjector final : public InputInjector {
     }
     ~CoreGraphicsInjector() override {
         releaseAll();
-        for (CGEventSourceRef source : {source_, pristine_}) {
-            if (source) {
-                CFRelease(source);
+        for (CFTypeRef owned : {CFTypeRef(source_), CFTypeRef(pristine_), CFTypeRef(lastNonLatin_)}) {
+            if (owned) {
+                CFRelease(owned);
             }
         }
         if (hid_) {
@@ -103,6 +108,7 @@ class CoreGraphicsInjector final : public InputInjector {
     }
 
     void releaseAll() noexcept override {
+        capsPending_ = false;
         // Release ordinary keys before modifiers so no shortcut is triggered.
         for (const bool modifiers : {false, true}) {
             for (uint32_t usage = keys::firstUsage; usage < keys_.size(); ++usage) {
@@ -193,7 +199,7 @@ class CoreGraphicsInjector final : public InputInjector {
             return RCS_ERROR_INVALID_STATE; // A system shortcut, or the keys would go to another window.
         }
         if (e.code == capsLock) {
-            return e.down && !e.repeat ? toggleCapsLock() : RCS_OK;
+            return capsLockKey(e);
         }
         if (keys_[e.code] == bool(e.down) && !e.repeat) {
             return RCS_OK;
@@ -280,6 +286,95 @@ class CoreGraphicsInjector final : public InputInjector {
             }
         }
         return RCS_OK;
+    }
+
+    // INPUT_SOURCE with a non-Latin input source: a press switches input
+    // sources, unless Caps Lock is on (the press turns it off) or the key is
+    // held options_.capsLockHoldMs (it toggles Caps Lock as soon as a repeat
+    // or the release says so). Otherwise each press toggles Caps Lock.
+    rcs_result capsLockKey(const rcs_input_event& e) {
+        const auto now = std::chrono::steady_clock::now();
+        const bool held = now - capsDown_ >= std::chrono::milliseconds(options_.capsLockHoldMs);
+        if (e.down && !e.repeat) {
+            const bool on = CGEventSourceFlagsState(kCGEventSourceStateHIDSystemState) & kCGEventFlagMaskAlphaShift;
+            if (options_.capsLock != RCS_CAPS_LOCK_INPUT_SOURCE || on || !hasNonLatinSource()) {
+                return toggleCapsLock();
+            }
+            capsDown_ = now;
+            capsPending_ = true;
+            return RCS_OK;
+        }
+        if (!capsPending_ || (e.down && !held)) {
+            return RCS_OK;
+        }
+        capsPending_ = false;
+        return held ? toggleCapsLock() : switchInputSource();
+    }
+
+    // Keyboard input sources the user enabled and can select, as the input
+    // menu lists them.
+    static CFArrayRef selectableKeyboardSources() {
+        const void* keys[] = {kTISPropertyInputSourceCategory, kTISPropertyInputSourceIsSelectCapable};
+        const void* values[] = {kTISCategoryKeyboardInputSource, kCFBooleanTrue};
+        CFDictionaryRef filter = CFDictionaryCreate(nullptr, keys, values, 2, &kCFTypeDictionaryKeyCallBacks,
+                                                    &kCFTypeDictionaryValueCallBacks);
+        CFArrayRef list = TISCreateInputSourceList(filter, false);
+        CFRelease(filter);
+        return list;
+    }
+    static bool latin(TISInputSourceRef source) {
+        const auto ascii = CFBooleanRef(TISGetInputSourceProperty(source, kTISPropertyInputSourceIsASCIICapable));
+        return ascii && CFBooleanGetValue(ascii);
+    }
+    static CFStringRef idOf(TISInputSourceRef source) {
+        return CFStringRef(TISGetInputSourceProperty(source, kTISPropertyInputSourceID));
+    }
+
+    bool hasNonLatinSource() const {
+        CFArrayRef list = selectableKeyboardSources();
+        bool found = false;
+        for (CFIndex i = 0; list && i < CFArrayGetCount(list) && !found; ++i) {
+            found = !latin(TISInputSourceRef(CFArrayGetValueAtIndex(list, i)));
+        }
+        if (list) {
+            CFRelease(list);
+        }
+        return found;
+    }
+
+    // From a non-Latin input source to the last used Latin one; from a Latin
+    // one to the non-Latin one used last here, or else the first enabled.
+    rcs_result switchInputSource() {
+        TISInputSourceRef current = TISCopyCurrentKeyboardInputSource();
+        if (!current) {
+            return RCS_ERROR_UNSUPPORTED;
+        }
+        TISInputSourceRef target = nullptr;
+        if (!latin(current)) {
+            if (lastNonLatin_) {
+                CFRelease(lastNonLatin_);
+            }
+            lastNonLatin_ = CFStringRef(CFRetain(idOf(current)));
+            target = TISCopyCurrentASCIICapableKeyboardInputSource();
+        } else if (CFArrayRef list = selectableKeyboardSources()) {
+            for (CFIndex i = 0; i < CFArrayGetCount(list); ++i) {
+                const auto source = TISInputSourceRef(CFArrayGetValueAtIndex(list, i));
+                if (!latin(source) && (!target || (lastNonLatin_ && CFEqual(lastNonLatin_, idOf(source))))) {
+                    target = source;
+                }
+            }
+            if (target) {
+                CFRetain(target);
+            }
+            CFRelease(list);
+        }
+        CFRelease(current);
+        if (!target) {
+            return RCS_OK; // The non-Latin source was disabled since the press.
+        }
+        const OSStatus selected = TISSelectInputSource(target);
+        CFRelease(target);
+        return selected == noErr ? RCS_OK : RCS_ERROR_UNSUPPORTED;
     }
 
     rcs_result toggleCapsLock() {
@@ -594,6 +689,7 @@ class CoreGraphicsInjector final : public InputInjector {
         return std::max(1, clicks_[button]);
     }
 
+    const InputOptions options_;
     CGEventSourceRef source_;
     CGEventSourceRef pristine_; // Never posts: what a key says of itself (post).
     const CaptureTarget target_;
@@ -607,6 +703,9 @@ class CoreGraphicsInjector final : public InputInjector {
     io_connect_t hid_ = 0; // For Caps Lock, opened when first needed.
     CGPoint point_{};
     std::array<bool, keys::lastUsage + 1> keys_{};
+    bool capsPending_ = false; // Caps Lock is down; what it does is decided on release (or when held long enough).
+    std::chrono::steady_clock::time_point capsDown_{};
+    CFStringRef lastNonLatin_ = nullptr; // The input source a press left, to go back to.
     std::array<bool, 32> auxiliary_{}; // Media keys held, by NX_KEYTYPE.
     std::array<bool, 5> buttons_{};
     std::array<uint64_t, 5> lastClick_{};
@@ -622,8 +721,9 @@ class CoreGraphicsInjector final : public InputInjector {
 } // namespace
 
 std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget& target,
-                                                   const std::vector<uint32_t>& streamDisplays, bool) {
-    return std::make_unique<CoreGraphicsInjector>(target, streamDisplays);
+                                                   const std::vector<uint32_t>& streamDisplays,
+                                                   const InputOptions& options) {
+    return std::make_unique<CoreGraphicsInjector>(target, streamDisplays, options);
 }
 
 } // namespace rcsdk::platform

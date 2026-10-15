@@ -68,7 +68,7 @@ Thumbnail captureThumbnail(const ThumbnailRequest&) {
     fail(RCS_ERROR_UNSUPPORTED, "Android captures the screen only through MediaProjection in Java");
 }
 
-std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, bool) {
+std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, const InputOptions&) {
     fail(RCS_ERROR_UNSUPPORTED, "Android lets an application act on others only through an accessibility "
                                 "service of its own: execute the viewers' input in the host (RCS_INPUT_HOST)");
 }

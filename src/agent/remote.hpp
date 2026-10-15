@@ -76,7 +76,7 @@ public:
     void startAudio(const AudioStart& start) override;
     void stopAudio() override;
     void configureInput(const platform::CaptureTarget& target, const std::vector<uint32_t>& streamDisplays,
-                        bool secureDesktop) override;
+                        const platform::InputOptions& options) override;
     rcs_result applyInput(const rcs_input_event& event) override;
     void releaseInput() override;
     void startModule(const std::string& id, uint32_t version) override;

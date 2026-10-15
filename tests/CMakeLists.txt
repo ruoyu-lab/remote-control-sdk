@@ -176,7 +176,7 @@ endif()
 set(rcsdk_session_scenarios
     refusals streaming_gpu streaming_cpu recovery updates keyframes host_sources host_gpu_frames sample_buffers hardware_buffers stream_changes large_pictures cursor
     audio_changes udp keep_listening listen_after_refusals reconnect p2p p2p_keep_listening
-    p2p_stale_signal data data_between_connections relay adaptive degradation wireless wifi_sound rate_decisions host_encoder host_codec host_decoder encoded_source encoded_packets record_only host_codec_errors host_encoded negotiation audio control host_input host_input_types text_caret power power_actions power_wake power_actions_agent modules clipboard clipboard_viewers
+    p2p_stale_signal data data_between_connections relay adaptive degradation wireless wifi_sound rate_decisions host_encoder host_codec host_decoder encoded_source encoded_packets record_only host_codec_errors host_encoded negotiation audio control host_input host_input_types caps_lock text_caret power power_actions power_wake power_actions_agent modules clipboard clipboard_viewers
     file_transfer file_transfer_control file_transfer_large file_transfer_reconnect file_transfer_resume
     file_transfer_host file_transfer_agent file_transfer_pending file_transfer_publish clipboard_files
     clipboard_files_viewers clipboard_files_agent agents

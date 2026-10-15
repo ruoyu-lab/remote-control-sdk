@@ -2,6 +2,24 @@
 
 1.0 之前每个版本都可能有破坏性修改，不保留兼容（规则见 [docs/API-DESIGN.md](docs/API-DESIGN.md)）。升级时按这里的说明修改宿主代码、用新版本的头文件重新编译，并让两端运行同一个版本。
 
+## 0.1.4-beta
+
+Mac 被控时，观看端的 Caps Lock 可以像 Mac 自己的键盘那样切换中英文。网络协议仍是 v1；助手链接格式改为 2（会话和另一个进程里的助手要一起升级）。
+
+- **新增**：`rcs_control_config.caps_lock`（`rcs_caps_lock`）和 `caps_lock_hold_ms`，C++ `setCapsLock`。
+  - `RCS_CAPS_LOCK_INPUT_SOURCE`（默认）：Mac 开了非拉丁输入法（拼音、韩文、日文等）时，短按在它和拉丁输入法（ABC）之间切换，各自是最近用过的那一个；按住 `caps_lock_hold_ms`（默认 500 ms）切大小写；大写锁定时按一下是关掉。没开非拉丁输入法时、以及其他系统上，只切大小写。
+  - `RCS_CAPS_LOCK_CAPS_LOCK`：只切大小写，也就是之前的行为。
+  - 原因：Mac 的"按一下切换中英文"在键盘驱动那一层，程序发的按键事件到不了，所以 SDK 用系统的输入法接口（Text Input Sources）自己执行。系统设置里"用 Caps Lock 键切换"这一项没有给程序读的接口，所以由宿主选。
+  - 用户在 Mac 本机切换的输入法，经进程主线程的 run loop 才被看到；macOS 宿主本来就要让它转着。
+- **示例**：`rcsdk_cli --caps-lock input-source|caps-lock`。
+- **验证**：Mac 全量测试 192 项（`adaptive_tcp` 高负载时失败一次，单独重跑通过）；Windows 用 MSVC 编整个仓库并跑助手测试；Windows、Android、iOS 模拟器、WebAssembly 交叉编译；新的会话测试 `caps_lock`（设置传到注入器、运行中修改、无效值被拒绝）和助手链接的编解码测试；macOS 虚拟机里直接驱动注入器：拼音和 ABC 互切、按住切大小写、大写锁定时短按关掉、记住上次的非拉丁输入法（韩文）、`CAPS_LOCK` 模式。"没开非拉丁输入法"这一种在虚拟机里没测成（命令行进程禁用不了输入法），它和 `CAPS_LOCK` 走同一条路。
+
+### 迁移
+
+- `rcs_control_config` 多了两个字段，用 `RCS_CONTROL_CONFIG_INIT` 或 `rcs_control_config_init()` 初始化的代码重新编译即可。
+- Mac 分享端的默认行为变了：Caps Lock 从只切大小写，变成在开了非拉丁输入法时切换输入法。要保持原来的行为，设 `caps_lock = RCS_CAPS_LOCK_CAPS_LOCK`。
+- 用助手（`rcs_agent_link_config`）的宿主，会话和助手要用同一个版本：链接格式从 1 变成 2，版本不同时助手以 `UNSUPPORTED` 结束。
+
 ## 0.1.3-beta
 
 Mac 被控时按 E、D 不再弹出表情面板、开始听写；P2P 优先走系统默认路由所在的网卡；QML 示例的横向滚动方向改对了。网络协议仍是 v1，助手链接格式仍是 1；接口没变。

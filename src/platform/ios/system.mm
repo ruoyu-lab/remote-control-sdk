@@ -69,7 +69,7 @@ Thumbnail captureThumbnail(const ThumbnailRequest&) {
     fail(RCS_ERROR_UNSUPPORTED, "iOS lets no application capture the screen");
 }
 
-std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, bool) {
+std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, const InputOptions&) {
     fail(RCS_ERROR_UNSUPPORTED, "iOS lets no application inject input into others");
 }
 

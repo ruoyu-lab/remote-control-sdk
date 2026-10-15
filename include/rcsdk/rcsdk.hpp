@@ -831,6 +831,14 @@ public:
         control().host_input_types = types;
         return *this;
     }
+    // What the viewer's Caps Lock does (rcs_caps_lock), and with INPUT_SOURCE
+    // how long it is held to toggle Caps Lock instead (0: 500 ms).
+    SessionConfig& setCapsLock(rcs_caps_lock capsLock, uint32_t holdMs = 0) {
+        auto& c = control();
+        c.caps_lock = capsLock;
+        c.caps_lock_hold_ms = holdMs;
+        return *this;
+    }
 
     // ---- Viewing -----------------------------------------------------------
 

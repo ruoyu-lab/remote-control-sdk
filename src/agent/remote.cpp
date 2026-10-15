@@ -666,8 +666,8 @@ void RemoteAgent::stopAudio() {
 }
 
 void RemoteAgent::configureInput(const platform::CaptureTarget& target, const std::vector<uint32_t>& streamDisplays,
-                                 bool secureDesktop) {
-    const link::ConfigureInput ask{target, streamDisplays, secureDesktop};
+                                 const platform::InputOptions& options) {
+    const link::ConfigureInput ask{target, streamDisplays, options};
     command([&] { desired_.input = ask; }, ask);
 }
 

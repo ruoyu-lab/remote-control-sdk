@@ -110,7 +110,7 @@ if(APPLE)
             "-framework CoreGraphics" "-framework CoreVideo" "-framework CoreMedia"
             "-framework VideoToolbox" "-framework Security" "-framework Network"
             "-framework AudioToolbox" "-framework CoreAudio" "-framework IOKit" "-framework AVFoundation"
-            "-framework CoreWLAN" bsm)
+            "-framework CoreWLAN" "-framework Carbon" bsm)
     endif()
     target_sources(rcsdk_objects PRIVATE ${rcsdk_platform_sources} platform/other/desktop.cpp platform/other/java.cpp
                                          platform/other/wifi_power.cpp)
