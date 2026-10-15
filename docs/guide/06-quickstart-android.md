@@ -13,7 +13,7 @@ android {
     buildFeatures { prefab true }
 }
 dependencies {
-    implementation files('libs/RemoteControlSDK-0.1.2-beta.aar')   // 或放进自己的 Maven 仓库
+    implementation files('libs/RemoteControlSDK-0.1.3-beta.aar')   // 或放进自己的 Maven 仓库
 }
 ```
 
