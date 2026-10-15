@@ -55,8 +55,8 @@ inline uint32_t hidUsage(int key) {
 inline uint32_t hidUsage(const QKeyEvent& key, bool remoteIsMac) {
     uint32_t usage = 0;
 #if defined(Q_OS_WIN)
-    if (const quint32 scan = key.nativeScanCode()) { // Bit 8: an extended key.
-        usage = hidFromWindowsScanCode((scan & 0xff) | ((scan & 0x100) ? 0xE000u : 0u));
+    if (const quint32 scan = key.nativeScanCode()) { // An extended key: 0xE0xx from Qt 6.9 on, bit 8 before.
+        usage = hidFromWindowsScanCode((scan & 0x100) ? 0xE000u | (scan & 0xff) : scan);
     }
 #elif defined(Q_OS_MACOS)
     if (key.nativeVirtualKey() || key.key() == Qt::Key_A) { // kVK_ANSI_A is 0.

@@ -3103,7 +3103,9 @@ typedef struct rcs_cursor_shape {
 #define RCS_MAX_CURSOR_SHAPES 32
 
 typedef struct rcs_cursor_event {
-    uint32_t visible; /* Shown, and on a shared display. */
+    /* Shown, and on a shared display. A macOS sharer hides the pointer while
+     * one types, until the mouse moves; that counts as shown. */
+    uint32_t visible;
     uint32_t stream;  /* The stream whose display it is on (rcs_streams_config); 0 without it. */
     uint32_t x, y;    /* The hotspot, absolute 0..65535 across that stream's display (as input). */
     uint32_t shape_id;

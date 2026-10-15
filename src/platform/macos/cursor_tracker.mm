@@ -111,8 +111,20 @@ void CursorTracker::poll(CGRect bounds, CGDirectDisplayID display) {
         // way to tell.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        state_.visible = CGRectContainsPoint(bounds, point) && CGCursorIsVisible();
+        const bool shown = CGCursorIsVisible();
 #pragma clang diagnostic pop
+        // macOS also hides it while one types, until the mouse moves, and says
+        // the same. Only a real mouse brings it back, never a move a viewer
+        // sends, so the viewer would lose its pointer for good. Hidden as a key
+        // went down (typed here or sent) counts as shown; applications hide it
+        // later than that (a video after the mouse rests, a game as it starts).
+        if (shown_ && !shown) {
+            hiddenByTyping_ =
+                CGEventSourceSecondsSinceLastEventType(kCGEventSourceStateCombinedSessionState, kCGEventKeyDown) < 0.25;
+        }
+        hiddenByTyping_ = hiddenByTyping_ && !shown;
+        shown_ = shown;
+        state_.visible = CGRectContainsPoint(bounds, point) && (shown || hiddenByTyping_);
         const auto across = [](double offset, double size) {
             return size > 1 ? uint32_t(std::clamp(offset / (size - 1) * 65535, 0.0, 65535.0)) : 0u;
         };

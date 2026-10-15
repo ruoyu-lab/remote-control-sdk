@@ -24,6 +24,8 @@ private:
     void readImage(CGDirectDisplayID display);
 
     CursorState state_;
+    bool shown_ = false;         // What the system said at the last poll.
+    bool hiddenByTyping_ = false; // Hidden as a key went down, until it shows again.
     uint64_t imageHash_ = 0;
     std::chrono::steady_clock::time_point nextImage_{};
 };
