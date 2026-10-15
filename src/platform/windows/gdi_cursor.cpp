@@ -1,4 +1,4 @@
-#include "platform/windows/cursor.hpp"
+#include "platform/windows/gdi_cursor.hpp"
 
 #include "platform/windows/d3d.hpp"
 

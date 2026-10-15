@@ -2,6 +2,20 @@
 
 1.0 之前每个版本都可能有破坏性修改，不保留兼容（规则见 [docs/API-DESIGN.md](docs/API-DESIGN.md)）。升级时按这里的说明修改宿主代码、用新版本的头文件重新编译，并让两端运行同一个版本。
 
+## 0.1.1-beta
+
+修了用 Xcode 生成器编译 iOS 时缺符号的问题。网络协议仍是 v1，助手链接格式仍是 1；接口没变。
+
+- **修了**：Apple 平台上，SDK 的库同时编了两个同名源文件，`src/platform/apple/network.mm` 和 `src/platform/other/network.cpp`。Ninja、Makefile 按完整路径给目标文件起名，不受影响。Xcode 生成器（iOS 宿主的工程常用）把一个库的目标文件放在同一个目录、只按文件名起名，结果两个都叫 `network.o`，后一个覆盖了前一个，链接时缺符号。改法：
+  - 后一个改名为 `platform/other/wifi_power.cpp`；
+  - Windows 库里同样隐患的三对也改了名：`gdi_cursor`、`thumbnails`、`tls_connection`；
+  - CMake 现在会检查：同一个库里出现同名源文件，配置时直接报错并说明是哪个。
+- **验证**：Mac 全量测试 191 项里 188 项通过，另外三项（`udp`、`session.sample_buffers`、`session.text_caret`）是机器高负载时的偶发失败，都不涉及改名的文件，单独重跑通过；用 Xcode 生成器编 iOS 模拟器版（`cmake -G Xcode -DCMAKE_SYSTEM_NAME=iOS`）通过；Windows、Android、iOS 模拟器、WebAssembly 交叉编译通过。
+
+### 迁移
+
+- 接口没有变化。宿主为绕过这个问题加在自己构建里的临时代码可以删掉。
+
 ## 0.1.0-beta
 
 第一个公开版本。网络协议 **v1**，信令格式 1，助手链接格式 1，各官方模块的协议版本 1，转发器令牌 `rcsf1.`。

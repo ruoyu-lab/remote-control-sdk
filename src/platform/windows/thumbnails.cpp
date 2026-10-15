@@ -1,4 +1,4 @@
-#include "platform/windows/thumbnail.hpp"
+#include "platform/windows/thumbnails.hpp"
 
 #include "util/log.hpp"
 

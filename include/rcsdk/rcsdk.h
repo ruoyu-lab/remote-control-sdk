@@ -55,7 +55,7 @@ extern "C" {
 /* The version of these headers. The build reads it from here. */
 #define RCSDK_VERSION_MAJOR 0u
 #define RCSDK_VERSION_MINOR 1u
-#define RCSDK_VERSION_PATCH 0u
+#define RCSDK_VERSION_PATCH 1u
 /* Before a release: its stage ("alpha", "beta", "rc1"); empty in a release. */
 #define RCSDK_VERSION_LABEL "beta"
 #define RCSDK_VERSION ((RCSDK_VERSION_MAJOR << 16) | (RCSDK_VERSION_MINOR << 8) | RCSDK_VERSION_PATCH)

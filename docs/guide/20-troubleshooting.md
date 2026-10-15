@@ -10,7 +10,7 @@
 | `AUTHENTICATION`：“Wrong PIN or another secret” | 两端的密钥、口令或 PIN 不一样，或者一端用 `KEY`、另一端用 `PASSWORD`（原因会说明双方各用什么） |
 | `AUTHENTICATION`：“The sharer accepts no more PIN attempts” | PIN 失败次数到了 `pin_attempts`；分享端的宿主要换一个 PIN（`rcs_session_set_identity`） |
 | `AUTHENTICATION`：设备密钥相关 | 一端的设备公钥不在另一端的 `trusted_keys` 里；看 `rcs_peer_info.public_key` 是谁 |
-| `UNSUPPORTED`：协议版本 | 两端不是同一个 SDK 版本（原因里写明两端的协议版本，0.1.0-beta 是 v1）。两端升级到同一个版本 |
+| `UNSUPPORTED`：协议版本 | 两端不是同一个 SDK 版本（原因里写明两端的协议版本，0.1.1-beta 是 v1）。两端升级到同一个版本 |
 | `UNSUPPORTED`：没有共同的编码格式 / 画面格式 / 声音格式 | 原因写明双方各提供了什么；多列一个两端都有的格式（默认的 H.264 几乎都有） |
 | `BUSY` | 分享端满员（`max_viewers`），或解不了正在传的格式；重连中的观看端会自己重试 |
 | `REFUSED` / `TIMEOUT`（准入） | 分享端的宿主拒绝了，或没在 `admission_timeout_ms` 内决定 |

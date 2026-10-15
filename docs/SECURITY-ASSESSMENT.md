@@ -236,7 +236,7 @@
   - 建议修复：加一个通用能力（候选过滤回调或地址类别掩码），默认丢弃未指定/组播/广播地址；对信令加每路速率限制。
   - **状态**：已修（第二轮）：按地址范围剔除候选、同一 IP 最多 4 个，`ice_addresses` 可给出本机环回地址（第 0 节）。
 - **SA-13〔低〕Android 上 BearSSL 信任用户添加的 CA 证书，忽略宿主应用的网络安全策略。**`src/transport/tls_bearssl.cpp:599-601` 读 `/data/misc/user/<id>/cacerts-added` 进信任锚。面向 API 24+ 的应用默认不信任用户 CA，除非其 network security config 显式允许。攻击者=网络 MITM + 设备上装了 CA（MDM 或被诱导）。影响：TURN-over-TLS 的 MITM（看到 TURN 用户名与 HMAC，够离线猜口令；看到元数据；可拒服），媒体仍端到端加密。修复：默认不含用户 CA，或加宿主开关；文档说明 pin 为强选项。 **状态**：已修，见第 0 节。
-- **〔参考，F9〕证书校验细节**：BearSSL “minimal” 引擎忽略非关键 EKU、无 SAN 时回退到 CN（`third_party/bearssl/inc/bearssl_x509.h:80-96`，用于 `tls_bearssl.cpp:176-181`）；三个后端均无吊销检查（Windows `platform/windows/tls.cpp:386-397` 无吊销标志，Apple `tls_connection.mm:319` `SecTrustSetNetworkFetchAllowed(false)`，BearSSL 无）；无宿主 CA bundle 选项，只有叶证书 SHA-256 pin（私有 CA 的宿主每次续期需重新 pin）。 **状态**：第三轮：三个后端都拒绝扩展密钥用法不含服务器认证的、没有 subjectAltName 的证书（BearSSL 和 Windows 原来接受）；吊销与 CA 包不改，理由见第 0 节。
+- **〔参考，F9〕证书校验细节**：BearSSL “minimal” 引擎忽略非关键 EKU、无 SAN 时回退到 CN（`third_party/bearssl/inc/bearssl_x509.h:80-96`，用于 `tls_bearssl.cpp:176-181`）；三个后端均无吊销检查（Windows `platform/windows/tls_connection.cpp:386-397` 无吊销标志，Apple `tls_connection.mm:319` `SecTrustSetNetworkFetchAllowed(false)`，BearSSL 无）；无宿主 CA bundle 选项，只有叶证书 SHA-256 pin（私有 CA 的宿主每次续期需重新 pin）。 **状态**：第三轮：三个后端都拒绝扩展密钥用法不含服务器认证的、没有 subjectAltName 的证书（BearSSL 和 Windows 原来接受）；吊销与 CA 包不改，理由见第 0 节。
 - **〔参考，F7〕** `ice::decode` 先 base64 解码任意大小再校验（`ice.cpp:163-173`，入口 `session.cpp:1443`）：50 MB `"rcs1.AAAA…"` 会被完整解码后才以“未知版本”拒绝。修复：先拒绝超过约 1380 字符（最大合法信号 1030 字节 = 1374 字符加前缀）。 **状态**：已修（第二轮）：上限按最长的重启信令算（1060 字节，1419 个字符）。
 - **〔参考，F8〕** TURN 长期凭据（RFC 8656 标准行为，列全）：未认证错误被接受（`turn.cpp:296-321,174-191`），在途攻击者见事务 ID 可用 4xx 终止中继或用 438 打环；服务器从不发 401 则 realm 为空、无完整性，在途者可用自己的 XOR-RELAYED-ADDRESS 应答 Allocate（`turn.cpp:59-62,193-207`）；LIFETIME 未钳制，0/1 使每拍都刷新（`turn.cpp:202,330-331`）。影响仅 DoS/流量分析，数据仍端到端加密。修复：LIFETIME 钳到至少 60 s；可选在配了 TURN 凭据时拒绝未认证的 Allocate 成功。 **状态**：已修（第二轮）：刷新至少隔一秒、438 只重发一次、配了用户名时不接受未要凭据的分配；认证前的 4xx 照旧（第 0 节）。
 - **已确认稳健（STUN/ICE/TURN/TLS，harness + 代码审阅）**：
@@ -246,7 +246,7 @@
   - TLS 建立：配置拒绝无 pin 且无 DNS `turn_tls_server_name` 的 IP 地址 `turn_server`（`config.cpp:432-470`），故无 pin 连接必有名字；`tlsSettings` 只从 DNS 主机派生名字（`tls.cpp:11-26`）。
   - BearSSL：仅 TLS 1.2、ECDHE+AEAD、无重协商、SNI + 名字校验（`tls_bearssl.cpp:43-46,298-321`），时间取 `time()`，pin 模式对叶做 SHA-256 并用 pin 证书的密钥做握手签名（`:251-267`），无锚时失败关闭，测试覆盖名字/过期/不信任 CA/pin（`tests/tls.cpp:188-206`）。
   - Apple：verify block 取代默认检查但用 `SecPolicyCreateSSL(true,name)` 评估（`tls_connection.mm:305-339,359-371`），关会话恢复（`:355`），TLS≥1.2，拒绝转 AUTHENTICATION。
-  - Windows：手动校验在握手后、应用数据前运行（`platform/windows/tls.cpp:180,366-384`），要求 serverAuth EKU + 带服务器名的 SSL 策略（`:388-419`），重协商后复查（`:498`），仅 TLS 1.2/1.3 强算法，`SEC_I_INCOMPLETE_CREDENTIALS` 等失败关闭。
+  - Windows：手动校验在握手后、应用数据前运行（`platform/windows/tls_connection.cpp:180,366-384`），要求 serverAuth EKU + 带服务器名的 SSL 策略（`:388-419`），重协商后复查（`:498`），仅 TLS 1.2/1.3 强算法，`SEC_I_INCOMPLETE_CREDENTIALS` 等失败关闭。
 
 ### 3.9 转发器（`server/forwarder/`、`RCS_TRANSPORT_FORWARDER`）
 

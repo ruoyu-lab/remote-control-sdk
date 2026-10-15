@@ -113,16 +113,16 @@ if(APPLE)
             "-framework CoreWLAN" bsm)
     endif()
     target_sources(rcsdk_objects PRIVATE ${rcsdk_platform_sources} platform/other/desktop.cpp platform/other/java.cpp
-                                         platform/other/network.cpp)
+                                         platform/other/wifi_power.cpp)
     set_source_files_properties(${rcsdk_platform_sources} PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 elseif(WIN32)
     target_sources(rcsdk_objects PRIVATE
         platform/windows/audio.cpp
         platform/windows/capture.cpp
-        platform/windows/cursor.cpp
         platform/windows/decoder.cpp
         platform/windows/desktop.cpp
         platform/windows/encoder.cpp
+        platform/windows/gdi_cursor.cpp
         platform/windows/helper.cpp
         platform/windows/input.cpp
         platform/windows/network.cpp
@@ -134,8 +134,8 @@ elseif(WIN32)
         platform/windows/pointer_input.cpp
         platform/windows/surfaces.cpp
         platform/windows/system.cpp
-        platform/windows/thumbnail.cpp
-        platform/windows/tls.cpp
+        platform/windows/thumbnails.cpp
+        platform/windows/tls_connection.cpp
         platform/windows/window.cpp
         platform/windows/window_capture.cpp
         platform/other/application.cpp
@@ -169,11 +169,11 @@ elseif(ANDROID)
     set(rcsdk_system_libraries mediandk android aaudio EGL GLESv3 log)
 elseif(EMSCRIPTEN)
     target_sources(rcsdk_objects PRIVATE platform/web/platform.cpp platform/web/decoder.cpp platform/web/audio.cpp platform/other/application.cpp
-                                         platform/other/desktop.cpp platform/other/java.cpp platform/other/network.cpp
+                                         platform/other/desktop.cpp platform/other/java.cpp platform/other/wifi_power.cpp
                                          platform/other/networks.cpp platform/other/network_poll.cpp)
 else()
     target_sources(rcsdk_objects PRIVATE platform/unsupported/platform.cpp platform/other/application.cpp
-                                         platform/other/desktop.cpp platform/other/java.cpp platform/other/network.cpp
+                                         platform/other/desktop.cpp platform/other/java.cpp platform/other/wifi_power.cpp
                                          platform/other/networks.cpp platform/other/network_poll.cpp)
 endif()
 
@@ -215,6 +215,19 @@ endif()
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(rcsdk_objects PUBLIC RCSDK_STATIC)
 endif()
+# No two sources of the library share a name: generators that put a target's
+# objects in one directory (Xcode, as an iOS host's project builds the SDK)
+# would make both network.o, and the archive would keep one of them.
+get_target_property(rcsdk_sources rcsdk_objects SOURCES)
+set(rcsdk_source_names)
+foreach(source IN LISTS rcsdk_sources)
+    get_filename_component(name "${source}" NAME_WE)
+    if(name IN_LIST rcsdk_source_names)
+        message(FATAL_ERROR "Two sources of rcsdk_objects are both named ${name}: rename one (${source})")
+    endif()
+    list(APPEND rcsdk_source_names "${name}")
+endforeach()
+
 target_link_libraries(rcsdk_objects PUBLIC Threads::Threads ${rcsdk_system_libraries})
 if(MSVC)
     # getenv is used for what the supervisor passes on, read once; no _dupenv_s.

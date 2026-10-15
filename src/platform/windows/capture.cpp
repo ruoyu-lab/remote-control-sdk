@@ -44,13 +44,13 @@
 // windows, the pointer and remote input as on any display, and only the draw
 // samples the texture turned (surface_shader.hpp). Turning the display is a
 // mode change: duplication is lost, and capture resumes with the new shape.
-#include "platform/windows/cursor.hpp"
+#include "platform/windows/gdi_cursor.hpp"
 #include "platform/windows/d3d.hpp"
 #include "platform/windows/desktop.hpp"
 #include "platform/windows/display.hpp"
 #include "platform/windows/picture_pool.hpp"
 #include "platform/windows/surface_shader.hpp"
-#include "platform/windows/thumbnail.hpp"
+#include "platform/windows/thumbnails.hpp"
 #include "platform/windows/win.hpp"
 #include "platform/windows/window.hpp"
 #include "platform/windows/window_capture.hpp"

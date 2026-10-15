@@ -10,7 +10,7 @@
 // interface the host restricts the session to through a path monitor (it takes
 // no interface index). Secure Transport on the SDK's own socket would need
 // neither, but it is deprecated ("no longer supported") and stops at TLS 1.2.
-// Windows (platform/windows/tls.cpp): Schannel encrypts and decrypts buffers
+// Windows (platform/windows/tls_connection.cpp): Schannel encrypts and decrypts buffers
 // over the SDK's own TCP socket (connectTcp), so waiting, the interface and
 // cancellation are those of TURN over TCP.
 // BearSSL (transport/tls_bearssl.cpp: Android, Linux; Apple systems too, to

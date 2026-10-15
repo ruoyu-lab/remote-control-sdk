@@ -14,11 +14,11 @@
 // apart, Windows leaves it out and GDI reports it.
 #include "platform/windows/window_capture.hpp"
 
-#include "platform/windows/cursor.hpp"
+#include "platform/windows/gdi_cursor.hpp"
 #include "platform/windows/d3d.hpp"
 #include "platform/windows/picture_pool.hpp"
 #include "platform/windows/surface_shader.hpp"
-#include "platform/windows/thumbnail.hpp"
+#include "platform/windows/thumbnails.hpp"
 #include "platform/windows/window.hpp"
 
 #include "util/log.hpp"
