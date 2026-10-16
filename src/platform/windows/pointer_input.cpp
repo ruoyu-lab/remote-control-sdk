@@ -3,6 +3,8 @@
 // ids and wants all of them each time); for the pen, its one pointer.
 #include "platform/windows/pointer_input.hpp"
 
+#include <algorithm>
+
 namespace rcsdk::platform::win {
 namespace {
 
@@ -78,27 +80,52 @@ rcs_result PointerInjector::touch(const rcs_input_event& e, POINT point) {
                                 : changed.down ? POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT
                                                : POINTER_FLAG_DOWN | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT;
     std::array<POINTER_TYPE_INFO, 10> frame{};
-    UINT32 count = 0;
-    for (UINT32 id = 0; id < contacts_.size(); ++id) {
-        const bool self = id == e.code;
-        if (!self && !contacts_[id].down) {
-            continue;
-        }
-        const POINT at = self ? point : contacts_[id].point;
-        const uint32_t pressure = self ? e.pressure : contacts_[id].pressure;
-        POINTER_TYPE_INFO& info = frame[count++];
-        info.type = PT_TOUCH;
-        info.touchInfo.pointerInfo = pointerInfo(
-            PT_TOUCH, id, at, self ? flags : POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT);
-        info.touchInfo.touchMask = TOUCH_MASK_CONTACTAREA | (pressure ? TOUCH_MASK_PRESSURE : 0);
-        const POINT injected = info.touchInfo.pointerInfo.ptPixelLocation; // The contact area is in its units too.
-        info.touchInfo.rcContact = {injected.x - 2, injected.y - 2, injected.x + 2, injected.y + 2};
-        info.touchInfo.pressure = pressure;
-    }
+    const UINT32 count = touchFrame(frame, e.code, flags, point, e.pressure);
     if (!inject(touch_, frame.data(), count)) {
         return RCS_ERROR_PERMISSION_REQUIRED;
     }
+    lastTouchFrame_ = std::chrono::steady_clock::now();
     changed = {e.down != 0, point, e.pressure};
+    return RCS_OK;
+}
+
+UINT32 PointerInjector::touchFrame(std::array<POINTER_TYPE_INFO, 10>& frame, UINT32 self, POINTER_FLAGS flags,
+                                   POINT point, uint32_t pressure) const {
+    constexpr POINTER_FLAGS held = POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT;
+    UINT32 count = 0;
+    for (UINT32 id = 0; id < contacts_.size(); ++id) {
+        const bool changed = id == self;
+        if (!changed && !contacts_[id].down) {
+            continue;
+        }
+        const POINT at = changed ? point : contacts_[id].point;
+        const uint32_t force = changed ? pressure : contacts_[id].pressure;
+        POINTER_TYPE_INFO& info = frame[count++];
+        info.type = PT_TOUCH;
+        info.touchInfo.pointerInfo = pointerInfo(PT_TOUCH, id, at, changed ? flags : held);
+        info.touchInfo.touchMask = TOUCH_MASK_CONTACTAREA | (force ? TOUCH_MASK_PRESSURE : 0);
+        const POINT injected = info.touchInfo.pointerInfo.ptPixelLocation; // The contact area is in its units too.
+        info.touchInfo.rcContact = {injected.x - 2, injected.y - 2, injected.x + 2, injected.y + 2};
+        info.touchInfo.pressure = force;
+    }
+    return count;
+}
+
+bool PointerInjector::anyTouching() const noexcept {
+    return std::any_of(contacts_.begin(), contacts_.end(), [](const Contact& c) { return c.down; });
+}
+
+rcs_result PointerInjector::holdTouch(std::chrono::milliseconds interval) {
+    const auto now = std::chrono::steady_clock::now();
+    if (!touch_ || !anyTouching() || now - lastTouchFrame_ < interval) {
+        return RCS_OK;
+    }
+    std::array<POINTER_TYPE_INFO, 10> frame{};
+    const UINT32 count = touchFrame(frame, UINT32(contacts_.size()), 0, {}, 0);
+    if (!inject(touch_, frame.data(), count)) {
+        return RCS_ERROR_PERMISSION_REQUIRED;
+    }
+    lastTouchFrame_ = now;
     return RCS_OK;
 }
 

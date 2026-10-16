@@ -22,6 +22,9 @@
 #include <algorithm>
 #include <array>
 #include <climits>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -68,12 +71,23 @@ public:
         }
         displayId_ = monitor->id;
     }
-    ~SendInputInjector() override { releaseAll(); }
+    ~SendInputInjector() override {
+        {
+            std::lock_guard lock(mutex_);
+            stopping_ = true;
+        }
+        wake_.notify_all();
+        if (holder_.joinable()) {
+            holder_.join();
+        }
+        releaseAll();
+    }
 
     rcs_result apply(const rcs_input_event& e) override {
         if (e.type == RCS_INPUT_SECURE_ATTENTION) {
             return RCS_ERROR_INVALID_ARGUMENT; // The session sends it (platform::secureAttention), never an injector.
         }
+        std::lock_guard lock(mutex_);
         win::DpiScope dpi; // Physical pixels for the virtual-desktop mapping.
         win::InputDesktop desktop; // Following secure desktops: this thread works on the one that has input.
         // Not following them: only while the user's own desktop has input,
@@ -85,7 +99,7 @@ public:
         }
         switch (e.type) {
         case RCS_INPUT_RELEASE_ALL:
-            releaseAll();
+            release();
             return RCS_OK;
         case RCS_INPUT_KEY:
             return (e.code & 0xFFFF0000u) == RCS_KEY_CONSUMER ? consumerKey(e.code & 0xFFFFu, e.down) : key(e);
@@ -95,13 +109,45 @@ public:
             return relative(e);
         case RCS_INPUT_TOUCH:
         case RCS_INPUT_PEN:
-            return touchOrPen(e);
+            if (const rcs_result done = touchOrPen(e); done != RCS_OK || !pointers_.anyTouching()) {
+                return done;
+            }
+            if (!holder_.joinable()) {
+                holder_ = std::thread([this] { hold(); });
+            }
+            wake_.notify_one();
+            return RCS_OK;
         default:
             return pointer(e);
         }
     }
 
     void releaseAll() noexcept override {
+        std::lock_guard lock(mutex_);
+        release();
+    }
+
+private:
+    // Contacts held still: their frame again every holdInterval
+    // (PointerInjector::holdTouch), on the desktop input goes to, as apply.
+    static constexpr std::chrono::milliseconds holdInterval{10};
+    void hold() {
+        win::DpiScope dpi;
+        std::unique_lock lock(mutex_);
+        while (!stopping_) {
+            if (!pointers_.anyTouching()) {
+                wake_.wait(lock);
+                continue;
+            }
+            wake_.wait_for(lock, holdInterval);
+            win::InputDesktop desktop;
+            if (!stopping_ && (secureDesktop_ ? desktop.attach() : win::userDesktopHasInput())) {
+                pointers_.holdTouch(holdInterval);
+            }
+        }
+    }
+
+    void release() noexcept {
         win::DpiScope dpi;         // Touch and pen lift where they are, in physical pixels.
         win::InputDesktop desktop; // Best effort on the desktop that has input now.
         if (secureDesktop_) {
@@ -134,7 +180,6 @@ public:
         pointers_.releaseAll();
     }
 
-private:
     // SendInput fails when the input desktop is locked or belongs to a more
     // privileged application (UIPI).
     static bool send(INPUT& input) {
@@ -454,6 +499,10 @@ private:
     std::array<bool, 5> buttons_{};
     std::array<int64_t, 2> wheelRest_{}; // 1/120 lines not yet turned, across and down.
     win::PointerInjector pointers_;
+    std::mutex mutex_; // apply, releaseAll and the holder take turns.
+    std::condition_variable wake_;
+    bool stopping_ = false;
+    std::thread holder_; // Holds contacts down (hold), from the first touch on.
 };
 
 } // namespace

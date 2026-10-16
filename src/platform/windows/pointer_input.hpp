@@ -7,6 +7,7 @@
 #include <windows.h>
 
 #include <array>
+#include <chrono>
 
 namespace rcsdk::platform::win {
 
@@ -29,6 +30,13 @@ public:
     rcs_result pen(const rcs_input_event& event, POINT point);
     // Lifts every contact and takes the pen away.
     void releaseAll() noexcept;
+    // While contacts are down: the same frame again, as a touch screen keeps
+    // reporting a finger held still. Windows hands a contact to windows only
+    // as further frames come (measured: a press alone reached none until the
+    // lift; with a frame every 16 ms the first message came after 63 ms).
+    // Nothing when a frame went out within `interval` or none is down.
+    rcs_result holdTouch(std::chrono::milliseconds interval);
+    bool anyTouching() const noexcept;
     // Whether contact `code` or the pen is down now (a press that must reach
     // what is shared already did).
     bool touching(uint32_t code) const noexcept { return code < contacts_.size() && contacts_[code].down; }
@@ -42,10 +50,15 @@ private:
     };
 
     bool inject(HANDLE device, const POINTER_TYPE_INFO* frame, UINT32 count) noexcept;
+    // The frame of every contact down, with contact `self` (or none) flagged
+    // `flags` at `point` and the others moving where they are.
+    UINT32 touchFrame(std::array<POINTER_TYPE_INFO, 10>& frame, UINT32 self, POINTER_FLAGS flags, POINT point,
+                      uint32_t pressure) const;
     POINTER_TYPE_INFO penFrame(POINTER_FLAGS flags) const;
 
     HANDLE touch_ = nullptr, pen_ = nullptr;
     std::array<Contact, 10> contacts_{};
+    std::chrono::steady_clock::time_point lastTouchFrame_{};
     bool penInRange_ = false, penDown_ = false;
     rcs_input_event penState_{};
     POINT penPoint_{};
