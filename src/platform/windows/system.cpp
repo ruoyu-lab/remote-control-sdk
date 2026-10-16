@@ -165,6 +165,10 @@ rcs_capabilities capabilities() {
     return value;
 }
 
+std::shared_ptr<void> stayResponsive() {
+    return nullptr;
+}
+
 std::vector<CodecImplementation> codecImplementations() {
     std::vector<CodecImplementation> result;
     std::optional<win::MediaFoundation> mf; // Without it only NVENC: no transforms.

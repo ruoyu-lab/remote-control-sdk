@@ -551,6 +551,15 @@ rcs_audio_session_config audioSessionConfig();
 // calls it once). Systems without that state never call it.
 void observeAppState(std::function<void(bool background)> changed);
 
+// While a reference is held (a session runs, an agent serves one): the
+// process stays as prompt as one in front. macOS naps an application that
+// is not in front and seems idle (App Nap): its timers wait, and the first
+// key or picture after a quiet minute waited 160 ms and more (measured on an
+// M4 Pro). There: a user initiated, latency critical activity, which still
+// lets the machine sleep when idle (that is the power module's). Null
+// elsewhere.
+std::shared_ptr<void> stayResponsive();
+
 // ---- Java (Android) ------------------------------------------------------------
 
 // rcs_android_initialize: keeps `javaVm` and the application context of

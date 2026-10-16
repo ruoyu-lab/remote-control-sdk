@@ -42,6 +42,7 @@
 | 画质比预期差、帧率低 | 看 `RCS_EVENT_RATE` 和网络统计：路径排队或丢包时动态码率在降；满屏变化、码率不够时帧率会降（编码器的输出超过目标码率时 SDK 降帧率）。局域网上可以用 `LOW_LATENCY` 或 HEVC |
 | 延迟高（尤其 120 FPS） | 观看端等 vsync：改成立即提交（[08](08-viewing.md#怎样画得快)）；帧先排到界面线程再画也会多一两帧。分享端的显示器刷新率也有影响：60 Hz 的屏比高刷屏慢 |
 | 画面一阵一阵、码率被压低（Wi-Fi） | 接收端 Wi-Fi 省电：保持 `wifi_low_latency = 1`（Android、Windows）；看 `rcs_network_stats.wifi_low_latency` 是否保持着 |
+| macOS 上静止一会儿后，第一下操作要等 100 多毫秒，过一阵才恢复 | 系统让不在前台、看起来闲着的应用“打盹”（App Nap），它的定时器被推迟。会话运行期间和助手服务期间，SDK 向系统声明这是用户发起、对延迟敏感的活动（不阻止系统睡眠），所以 SDK 自己的线程不受影响；宿主自己在别的线程上做的实时工作（例如它自己画画面）也要同样声明（`NSProcessInfo` 的 `beginActivityWithOptions`） |
 | 偶尔卡一下、`RCS_EVENT_RECOVERY` | `BACKLOG`：解码或画面回调太慢，队列超时；`LOSS`：网络丢了补不回来的帧（看 `frames_lost`）；`DECODER`：解码器坏了换了一个 |
 | 颜色不对 | 渲染器没按 `rcs_gpu_frame_info.color` 的矩阵和范围转换，或观看端列了渲染器不认识的画面格式（10 位、4:4:4） |
 | Android 上新画面不来 | 宿主留着的 GPU 帧太多（最多 8 张）：画完就 `rcs_gpu_frame_release` |

@@ -23,6 +23,10 @@ rcs_capabilities capabilities() {
     return value;
 }
 
+std::shared_ptr<void> stayResponsive() {
+    return nullptr;
+}
+
 std::vector<CodecImplementation> codecImplementations() {
     return android::implementations();
 }

@@ -122,6 +122,10 @@ Thumbnail captureThumbnail(const ThumbnailRequest&) {
 std::unique_ptr<VideoEncoder> createVideoEncoder(const EncoderConfig&) {
     fail(RCS_ERROR_UNSUPPORTED, "Video encoding is not available on this platform");
 }
+std::shared_ptr<void> stayResponsive() {
+    return nullptr;
+}
+
 std::unique_ptr<InputInjector> createInputInjector(const CaptureTarget&, const std::vector<uint32_t>&, const InputOptions&) {
     fail(RCS_ERROR_UNSUPPORTED, "Input injection is not available on this platform");
 }

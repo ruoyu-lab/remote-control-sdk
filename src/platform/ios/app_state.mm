@@ -11,6 +11,10 @@
 
 namespace rcsdk::platform {
 
+std::shared_ptr<void> stayResponsive() {
+    return nullptr;
+}
+
 void observeAppState(std::function<void(bool background)> changed) {
     if ([NSBundle.mainBundle.bundleURL.pathExtension isEqualToString:@"appex"]) {
         changed(false);

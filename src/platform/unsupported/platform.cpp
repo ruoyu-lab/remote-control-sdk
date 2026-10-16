@@ -10,6 +10,10 @@ rcs_capabilities capabilities() {
     value.capture_sources = (1u << RCS_CAPTURE_HOST) | (1u << RCS_CAPTURE_ENCODED);
     return value;
 }
+std::shared_ptr<void> stayResponsive() {
+    return nullptr;
+}
+
 std::vector<CodecImplementation> codecImplementations() {
     return {};
 }

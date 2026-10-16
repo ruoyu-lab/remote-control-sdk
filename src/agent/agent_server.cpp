@@ -358,6 +358,7 @@ void AgentServer::attachment(const std::shared_ptr<std::atomic<bool>>& cancel, b
 
     LinkEvents events(channel, *cancel);
     std::array<std::atomic<uint64_t>, RCS_MAX_ENCODINGS> backlogNs{};
+    const auto responsive = platform::stayResponsive(); // Capture, encoding and input are here.
     MediaAgent media(events);
     link::ModuleAssembly modulesIn; // The modules' messages, as their parts come.
     if (options_.hostEncoder) {

@@ -8,6 +8,7 @@
 #include <rcsdk/gpu.h>
 
 #import <ApplicationServices/ApplicationServices.h>
+#import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
@@ -17,6 +18,19 @@
 #include <pthread.h>
 
 namespace rcsdk::platform {
+
+std::shared_ptr<void> stayResponsive() {
+    @autoreleasepool {
+        id activity = [NSProcessInfo.processInfo
+            beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical
+                              reason:@"Remote desktop session"];
+        return std::shared_ptr<void>((__bridge_retained void*)activity, [](void* held) {
+            @autoreleasepool {
+                [NSProcessInfo.processInfo endActivity:(__bridge_transfer id)held];
+            }
+        });
+    }
+}
 
 rcs_capabilities capabilities() {
     rcs_capabilities value = RCS_CAPABILITIES_INIT;

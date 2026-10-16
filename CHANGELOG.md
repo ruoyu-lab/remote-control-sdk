@@ -4,6 +4,7 @@
 
 ## 未发布
 
+- **修了**：macOS 上，会话所在的应用不在前台、画面又静止了一阵时，系统让它“打盹”（App Nap）：SDK 的网络、采集和输入线程的定时器被推迟，静止后的第一下操作要等 100 多毫秒，过一阵才恢复。实测：一个不在前台的测试应用，静止 1 分钟后收到网络包要 164 ms，20 ms 的等待拖到 250 ms。现在会话运行期间、助手服务一个会话期间，SDK 向系统声明一项用户发起、对延迟敏感的活动（`NSProcessInfo` 的 `beginActivityWithOptions`，`NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical`），不阻止系统在闲置时睡眠（那是电源模块的事）。
 - **修了**：Windows 被控、有一块显示器放在主显示器左边或上边时，笔（和触摸）注入的位置偏了：`InjectSyntheticPointerInput` 的坐标从虚拟桌面的左上角算起，不是屏幕坐标，SDK 却按屏幕坐标给了它。偏移正好是那块显示器的宽（或高），只有一块显示器、或其他显示器在右边下边时没有偏移。鼠标不受影响（它按整个虚拟桌面的比例注入）。
 
 ## 0.1.4-beta

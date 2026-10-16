@@ -245,7 +245,7 @@ public:
 
     // `reason`: why the previous connection ended (LISTENING again, RECONNECTING).
     void setState(rcs_state state, rcs_result reason = RCS_OK);
-    void holdNetwork(rcs_state state);
+    void holdSystem(rcs_state state);
     // The connection passed the handshake: counted; losing it later may keep
     // the run going (rcs_reconnect_config).
     void connectionEstablished();
@@ -533,9 +533,10 @@ private:
     std::atomic<bool> cancelled_{false};
     std::atomic<bool> keyframeRequested_{false};
     std::atomic<rcs_state> state_{RCS_STATE_IDLE};
-    std::mutex wifiMutex_;
+    std::mutex systemMutex_;
     std::shared_ptr<void> wifi_;     // The system's Wi-Fi out of power saving (platform::lowLatencyWifi).
     std::shared_ptr<void> networks_; // The system's changes of its networks watched (platform::watchNetworks).
+    std::shared_ptr<void> responsive_; // The process kept prompt (platform::stayResponsive).
     NetworkChoice networkChoice_;
     bool connected_ = false;            // Worker thread: this connection passed the handshake.
     Clock::time_point lostAt_{};        // Worker thread, view: when the running connection broke.

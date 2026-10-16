@@ -486,7 +486,7 @@ void Session::commit(std::unique_lock<std::mutex>& live, const SessionConfig& ne
         modules_->update(*before, *after);
     }
     if (changed & (1u << RCS_EXT_NETWORK_TUNING)) {
-        holdNetwork(state_);
+        holdSystem(state_);
     }
 }
 
@@ -635,7 +635,7 @@ void Session::setState(rcs_state state, rcs_result reason) {
         return;
     }
     state_ = state;
-    holdNetwork(state);
+    holdSystem(state);
     log::debug("session",
                std::string(config_.role == RCS_ROLE_SHARE ? "Share" : "View") + " session " + stateName(state));
     rcs_event event{};
@@ -645,12 +645,18 @@ void Session::setState(rcs_state state, rcs_result reason) {
     emit(event);
 }
 
-// What the network gives a run: the system's changes of its networks seen
-// while it runs over sockets (rcs_paths_config), and Wi-Fi out of power
+// What the system gives a run: the process as prompt as one in front while
+// it runs (platform::stayResponsive), the system's changes of its networks
+// seen while it runs over sockets (rcs_paths_config), and Wi-Fi out of power
 // saving while connected (rcs_network_tuning_config.wifi_low_latency).
-void Session::holdNetwork(rcs_state state) {
-    std::lock_guard lock(wifiMutex_);
+void Session::holdSystem(rcs_state state) {
+    std::lock_guard lock(systemMutex_);
     const bool runs = state != RCS_STATE_IDLE && state != RCS_STATE_STOPPED && state != RCS_STATE_FAILED;
+    if (!runs) {
+        responsive_.reset();
+    } else if (!responsive_) {
+        responsive_ = platform::stayResponsive();
+    }
     if (!runs || usesHostChannel(config_)) {
         networks_.reset();
     } else if (!networks_) {
