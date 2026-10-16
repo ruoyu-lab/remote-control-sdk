@@ -31,11 +31,14 @@ const Functions& functions() {
     return result;
 }
 
+// `point` in screen pixels. InjectSyntheticPointerInput takes them from the
+// virtual screen's top left instead (measured: with a display left of the
+// main one, every point came out that far to the left).
 POINTER_INFO pointerInfo(POINTER_INPUT_TYPE type, UINT32 id, POINT point, POINTER_FLAGS flags) {
     POINTER_INFO info{};
     info.pointerType = type;
     info.pointerId = id;
-    info.ptPixelLocation = point;
+    info.ptPixelLocation = {point.x - GetSystemMetrics(SM_XVIRTUALSCREEN), point.y - GetSystemMetrics(SM_YVIRTUALSCREEN)};
     info.pointerFlags = flags;
     return info;
 }
@@ -88,7 +91,8 @@ rcs_result PointerInjector::touch(const rcs_input_event& e, POINT point) {
         info.touchInfo.pointerInfo = pointerInfo(
             PT_TOUCH, id, at, self ? flags : POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT);
         info.touchInfo.touchMask = TOUCH_MASK_CONTACTAREA | (pressure ? TOUCH_MASK_PRESSURE : 0);
-        info.touchInfo.rcContact = {at.x - 2, at.y - 2, at.x + 2, at.y + 2};
+        const POINT injected = info.touchInfo.pointerInfo.ptPixelLocation; // The contact area is in its units too.
+        info.touchInfo.rcContact = {injected.x - 2, injected.y - 2, injected.x + 2, injected.y + 2};
         info.touchInfo.pressure = pressure;
     }
     if (!inject(touch_, frame.data(), count)) {
