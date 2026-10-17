@@ -5,13 +5,13 @@
 SDK 还在开发阶段，1.0 之前**不保留兼容**（理由见 [API-DESIGN 第 3 节](../API-DESIGN.md#3-版本规则10-之前)）：
 
 - **每个版本都可能有破坏性修改**：结构体字段的顺序和名称、枚举的编号、默认值、网络协议都可能改变。升级时按 [CHANGELOG](../../CHANGELOG.md) 每个版本的“迁移”一节改代码并重新编译。
-- **一个版本号**：`rcsdk.h` 的 `RCSDK_VERSION_MAJOR` / `MINOR` / `PATCH` 和 `RCSDK_VERSION`（`(MAJOR << 16) | (MINOR << 8) | PATCH`）是编译时的版本，`rcs_version_number()` 和 `rcs_version()`（例如 `"0.1.5-beta"`；正式发布的版本没有 `-` 后面的阶段，阶段在 `RCSDK_VERSION_LABEL`）是实际加载的库的版本。
+- **一个版本号**：`rcsdk.h` 的 `RCSDK_VERSION_MAJOR` / `MINOR` / `PATCH` 和 `RCSDK_VERSION`（`(MAJOR << 16) | (MINOR << 8) | PATCH`）是编译时的版本，`rcs_version_number()` 和 `rcs_version()`（例如 `"0.1.6-beta"`；正式发布的版本没有 `-` 后面的阶段，阶段在 `RCSDK_VERSION_LABEL`）是实际加载的库的版本。
 - **头文件和库必须是同一个版本**，不同时明确报错，不去猜：
   - `RCS_SESSION_CONFIG_INIT` 把 `version` 填成 `RCSDK_VERSION`，与库不同时 `rcs_session_create` 返回 `INVALID_ARGUMENT`，原因里写明两个版本（助手的 `rcs_agent_config.version`、看护者的 `rcs_supervisor_config.version` 也一样）。
   - 每个结构体的 `struct_size`、列表函数的 `item_size` 必须正好是本版本的 `sizeof`；用 `*_INIT` 宏和 `sizeof` 就不会错。库从不按前缀读写。
   - 库在运行时才加载时（Windows 上放在应用目录里的 DLL、macOS 应用包里的 dylib），启动时检查 `rcs_version_number() == RCSDK_VERSION`。macOS 和 Linux 的动态库按次版本命名（`librcsdk_core.0.1.dylib`），装错版本时系统加载就失败；CMake 包只匹配同一个次版本（`find_package(RemoteControlSDK 0.1)`）。
-- **两端运行同一个版本**：网络协议的版本在握手的第一条消息里（0.1.5-beta 是 v1），每改一次线上格式就加一。协议版本不同的两端握手失败：分享端告诉对方自己的协议版本、丢弃这个连接（计入 `rejected_connections`）；观看端以 `RCS_ERROR_UNSUPPORTED` 失败，原因里写明两个版本。宿主最好在自己的信令或配对流程里交换版本号，更早地提示用户升级。
-- **助手链接**有自己的明文前缀（链接格式号，0.1.5-beta 是 2，加上 `RCSDK_VERSION`）：会话和另一个进程里的助手必须是同一个版本，不同时助手以 `UNSUPPORTED` 结束、不再重试。
+- **两端运行同一个版本**：网络协议的版本在握手的第一条消息里（0.1.6-beta 是 v1），每改一次线上格式就加一。协议版本不同的两端握手失败：分享端告诉对方自己的协议版本、丢弃这个连接（计入 `rejected_connections`）；观看端以 `RCS_ERROR_UNSUPPORTED` 失败，原因里写明两个版本。宿主最好在自己的信令或配对流程里交换版本号，更早地提示用户升级。
+- **助手链接**有自己的明文前缀（链接格式号，0.1.6-beta 是 2，加上 `RCSDK_VERSION`）：会话和另一个进程里的助手必须是同一个版本，不同时助手以 `UNSUPPORTED` 结束、不再重试。
 - **模块**的线上格式靠模块自己的 `version`：两端不同时这个连接上不激活（`RCS_MODULE_INACTIVE`）。
 - 1.0 起才承诺兼容，规则届时写进 API-DESIGN。
 

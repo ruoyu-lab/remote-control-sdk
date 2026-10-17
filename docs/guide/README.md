@@ -1,6 +1,6 @@
 # 开发者指南
 
-这份指南讲怎样**用** SDK 编写自己的程序，不需要读 SDK 的源码。接口的正式说明在头文件的注释里（`include/rcsdk/*.h`）；SDK 内部怎样实现见 [ARCHITECTURE](../ARCHITECTURE.md)，接口为什么是现在这个样子见 [API-DESIGN](../API-DESIGN.md)，每个版本改了什么见 [CHANGELOG](../../CHANGELOG.md)。本指南对应 0.1.5-beta（网络协议 v1）。1.0 之前每个版本都可能有破坏性修改。
+这份指南讲怎样**用** SDK 编写自己的程序，不需要读 SDK 的源码。接口的正式说明在头文件的注释里（`include/rcsdk/*.h`）；SDK 内部怎样实现见 [ARCHITECTURE](../ARCHITECTURE.md)，接口为什么是现在这个样子见 [API-DESIGN](../API-DESIGN.md)，每个版本改了什么见 [CHANGELOG](../../CHANGELOG.md)。本指南对应 0.1.6-beta（网络协议 v1）。1.0 之前每个版本都可能有破坏性修改。
 
 ## 先读
 
