@@ -14,7 +14,7 @@ bool secureAttentionAvailable() noexcept {
     return false;
 }
 
-rcs_result secureAttention(uint32_t) {
+rcs_result secureAttention() {
     return RCS_ERROR_UNSUPPORTED;
 }
 

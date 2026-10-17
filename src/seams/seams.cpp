@@ -187,11 +187,11 @@ void setSecureAttention(std::function<rcs_result()> send) {
     secureAttentionOverride = std::move(send);
 }
 
-rcs_result secureAttention(uint32_t forProcess) {
+rcs_result secureAttention() {
     std::unique_lock lock(mutex);
     const auto send = secureAttentionOverride;
     lock.unlock();
-    return send ? send() : platform::secureAttention(forProcess);
+    return send ? send() : platform::secureAttention();
 }
 
 void setSecureCapabilities(SecureCapabilities capabilities) {

@@ -143,10 +143,10 @@ public:
         port.configureInput(target, streamDisplays, options);
     }
     // Ctrl+Alt+Del is sent by the session's own process (Windows: the service
-    // in session 0 can, the user's session cannot), to the agent's session;
+    // in session 0 can, the user's session cannot), to the console session;
     // the rest the agent executes.
     rcs_result apply(const rcs_input_event& event) override {
-        return event.type == RCS_INPUT_SECURE_ATTENTION ? seams::secureAttention(port_.machine().process.processId)
+        return event.type == RCS_INPUT_SECURE_ATTENTION ? seams::secureAttention()
                                                         : port_.applyInput(event);
     }
     void releaseAll() noexcept override { port_.releaseInput(); }

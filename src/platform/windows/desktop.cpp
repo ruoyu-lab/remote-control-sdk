@@ -178,11 +178,11 @@ HANDLE relayEnd() {
     return link ? link->sas : nullptr;
 }
 
-// Sends it as a service; the call reports nothing. A service's SendSAS reaches
-// the session of the token it impersonates (Microsoft's SendSAS
-// documentation), so it is sent as `process` (0: this one): to that process's
-// session wherever the console is, e.g. a Remote Desktop session.
-rcs_result sendSas(uint32_t process) {
+// Sends it as a service, to the console session; the call reports nothing.
+// Impersonating another process's token first (Microsoft's SendSAS
+// documentation says the sequence then goes to that token's session) made it
+// reach no session on Windows 11: the thread no longer counts as a service.
+rcs_result sendSas() {
     using SendSas = void(WINAPI*)(BOOL);
     static const SendSas function = [] {
         HMODULE module = LoadLibraryExW(L"sas.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
@@ -192,22 +192,7 @@ rcs_result sendSas(uint32_t process) {
         log::warning("input", "Ctrl+Alt+Del was not sent: this system has no sas.dll");
         return RCS_ERROR_UNSUPPORTED;
     }
-    if (!process || process == GetCurrentProcessId()) {
-        function(FALSE);
-        return RCS_OK;
-    }
-    const win::Handle handle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process));
-    HANDLE raw = nullptr;
-    const bool opened = handle && OpenProcessToken(handle.get(), TOKEN_QUERY | TOKEN_DUPLICATE, &raw);
-    const win::Handle token(raw);
-    if (!opened || !ImpersonateLoggedOnUser(token.get())) {
-        const DWORD error = GetLastError();
-        log::warning("input", "Ctrl+Alt+Del was not sent: it could not be sent as process " + std::to_string(process) +
-                                  ", for its session (" + win::errorText(error) + ")");
-        return RCS_ERROR_INTERNAL;
-    }
     function(FALSE);
-    RevertToSelf();
     return RCS_OK;
 }
 
@@ -235,7 +220,7 @@ bool secureAttentionAvailable() noexcept {
     return policyAllowsServices() && ((win::sessionId() == 0 && win::runningAsSystem()) || relayEnd() != nullptr);
 }
 
-rcs_result secureAttention(uint32_t forProcess) {
+rcs_result secureAttention() {
     if (win::sessionId() == 0 && win::runningAsSystem()) {
         if (!policyAllowsServices()) { // This process sends it, so this is where the policy matters.
             log::warning("input",
@@ -244,7 +229,7 @@ rcs_result secureAttention(uint32_t forProcess) {
                          "\\Policies\\System allows it; the SDK never sets it)");
             return RCS_ERROR_PERMISSION_REQUIRED;
         }
-        return sendSas(forProcess);
+        return sendSas();
     }
     if (const HANDLE end = relayEnd()) {
         // The supervisor, a service in session 0, sends it to this process's session, or says why not.

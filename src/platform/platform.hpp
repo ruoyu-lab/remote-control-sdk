@@ -675,11 +675,11 @@ DesktopState desktopState();
 // rcs_capabilities.secure_desktop: this process can capture and control secure
 // desktops (Windows: LocalSystem in a user session).
 bool secureDesktopAvailable() noexcept;
-// rcs_capabilities.secure_attention, and sending Ctrl+Alt+Del to the session of
-// process `forProcess` (0: this process's). The result is what
-// RCS_INPUT_SECURE_ATTENTION documents; a refusal is logged with its reason.
+// rcs_capabilities.secure_attention, and sending Ctrl+Alt+Del to the console
+// session. The result is what RCS_INPUT_SECURE_ATTENTION documents; a refusal
+// is logged with its reason.
 bool secureAttentionAvailable() noexcept;
-rcs_result secureAttention(uint32_t forProcess);
+rcs_result secureAttention();
 
 // ---- A supervisor's helper -----------------------------------------------------------
 // (The supervisor itself is RemoteControl::Supervisor's, beside the core.)

@@ -93,12 +93,11 @@ bool policyAllowsServices() {
     return status == ERROR_SUCCESS && (value == 1 || value == 3);
 }
 
-// Sends it as `helper` (a process handle the supervisor holds: never another
-// process that took its number): a service's SendSAS reaches the session of
-// the token it impersonates (Microsoft's SendSAS documentation), so it
-// reaches the helper's session wherever the console is. The call itself
-// reports nothing.
-rcs_result sendSas(HANDLE helper) {
+// Sends it from this service, to the console session. The call reports
+// nothing. Impersonating the helper's token first (Microsoft's SendSAS
+// documentation says the sequence then goes to that token's session) made it
+// reach no session on Windows 11: the thread no longer counts as a service.
+rcs_result sendSas() {
     if (!policyAllowsServices()) {
         warning("Ctrl+Alt+Del was not sent: the system policy SoftwareSASGeneration does not let services simulate "
                 "it (1 or 3 under HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System allows it; "
@@ -114,17 +113,7 @@ rcs_result sendSas(HANDLE helper) {
         warning("Ctrl+Alt+Del was not sent: this system has no sas.dll");
         return RCS_ERROR_UNSUPPORTED;
     }
-    HANDLE raw = nullptr;
-    const bool opened = OpenProcessToken(helper, TOKEN_QUERY | TOKEN_DUPLICATE, &raw);
-    const win::Handle token(raw);
-    if (!opened || !ImpersonateLoggedOnUser(token.get())) {
-        const DWORD error = GetLastError();
-        warning("Ctrl+Alt+Del was not sent: it could not be sent as helper " + std::to_string(GetProcessId(helper)) +
-                ", for its session (" + win::errorText(error) + ")");
-        return RCS_ERROR_INTERNAL;
-    }
     function(FALSE);
-    RevertToSelf();
     return RCS_OK;
 }
 
@@ -256,7 +245,7 @@ private:
             int32_t result = RCS_ERROR_INVALID_ARGUMENT; // One byte, 'S', asks.
             if (size == 1 && request[0] == 'S') {
                 info("The helper asked for Ctrl+Alt+Del");
-                result = sendSas(helper_.get());
+                result = sendSas();
             }
             OVERLAPPED write = overlapped();
             if ((!WriteFile(pipe_.get(), &result, sizeof(result), nullptr, &write) &&

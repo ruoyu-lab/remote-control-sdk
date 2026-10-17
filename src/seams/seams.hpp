@@ -92,8 +92,8 @@ platform::DesktopState desktopState();
 // Ctrl+Alt+Del goes to `send` instead of the system, which makes the machine
 // able to send it (rcs_capabilities.secure_attention); empty restores.
 void setSecureAttention(std::function<rcs_result()> send);
-// To the session of process `forProcess` (platform::secureAttention).
-rcs_result secureAttention(uint32_t forProcess);
+// To the console session (platform::secureAttention).
+rcs_result secureAttention();
 
 // Whether this process counts as able to follow secure desktops and to send
 // Ctrl+Alt+Del, regardless of the system; no value restores the system's answer.
